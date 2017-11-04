@@ -192,7 +192,7 @@ func (p *DataPayload) UnmarshalBinary(uplink bool, data []byte) error {
 
 // JoinRequestPayload represents the join-request message payload.
 type JoinRequestPayload struct {
-	AppEUI   EUI64    `json:"appEUI"`
+	JoinEUI  EUI64    `json:"joinEUI"`
 	DevEUI   EUI64    `json:"devEUI"`
 	DevNonce DevNonce `json:"devNonce"`
 }
@@ -200,7 +200,7 @@ type JoinRequestPayload struct {
 // MarshalBinary marshals the object in binary form.
 func (p JoinRequestPayload) MarshalBinary() ([]byte, error) {
 	out := make([]byte, 0, 18)
-	b, err := p.AppEUI.MarshalBinary()
+	b, err := p.JoinEUI.MarshalBinary()
 	if err != nil {
 		return nil, err
 	}
@@ -220,7 +220,7 @@ func (p *JoinRequestPayload) UnmarshalBinary(uplink bool, data []byte) error {
 	if len(data) != 18 {
 		return errors.New("lorawan: 18 bytes of data are expected")
 	}
-	if err := p.AppEUI.UnmarshalBinary(data[0:8]); err != nil {
+	if err := p.JoinEUI.UnmarshalBinary(data[0:8]); err != nil {
 		return err
 	}
 	if err := p.DevEUI.UnmarshalBinary(data[8:16]); err != nil {

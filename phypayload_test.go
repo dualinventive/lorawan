@@ -339,7 +339,7 @@ func TestPHYPayloadJoinRequest(t *testing.T) {
 				So(ok, ShouldBeTrue)
 
 				Convey("Then the JoinRequestPayload contains the expected data", func() {
-					So(jrPl.AppEUI, ShouldResemble, EUI64{1, 2, 3, 4, 1, 2, 3, 4})
+					So(jrPl.JoinEUI, ShouldResemble, EUI64{1, 2, 3, 4, 1, 2, 3, 4})
 					So(jrPl.DevEUI, ShouldResemble, EUI64{2, 3, 4, 5, 2, 3, 4, 5})
 					So(jrPl.DevNonce, ShouldResemble, DevNonce{16, 45})
 				})
@@ -632,7 +632,7 @@ func ExamplePHYPayload_joinRequest() {
 			Major: LoRaWANR1,
 		},
 		MACPayload: &JoinRequestPayload{
-			AppEUI:   [8]byte{1, 1, 1, 1, 1, 1, 1, 1},
+			JoinEUI:  [8]byte{1, 1, 1, 1, 1, 1, 1, 1},
 			DevEUI:   [8]byte{2, 2, 2, 2, 2, 2, 2, 2},
 			DevNonce: [2]byte{3, 3},
 		},
@@ -715,7 +715,7 @@ func ExamplePHYPayload_readJoinRequest() {
 	}
 
 	fmt.Println(phy.MHDR.MType)
-	fmt.Println(jrPL.AppEUI)
+	fmt.Println(jrPL.JoinEUI)
 	fmt.Println(jrPL.DevEUI)
 	fmt.Println(jrPL.DevNonce)
 

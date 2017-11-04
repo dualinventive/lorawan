@@ -151,8 +151,8 @@ func TestJoinRequestPayload(t *testing.T) {
 			So(b, ShouldResemble, []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0})
 		})
 
-		Convey("Given AppEUI=[8]byte{1, 1, 1, 1, 1, 1, 1, 1}, DevEUI=[8]byte{2, 2, 2, 2, 2, 2, 2, 2} and DevNonce=[2]byte{3, 3}", func() {
-			p.AppEUI = [8]byte{1, 1, 1, 1, 1, 1, 1, 1}
+		Convey("Given JoinEUI=[8]byte{1, 1, 1, 1, 1, 1, 1, 1}, DevEUI=[8]byte{2, 2, 2, 2, 2, 2, 2, 2} and DevNonce=[2]byte{3, 3}", func() {
+			p.JoinEUI = [8]byte{1, 1, 1, 1, 1, 1, 1, 1}
 			p.DevEUI = [8]byte{2, 2, 2, 2, 2, 2, 2, 2}
 			p.DevNonce = [2]byte{3, 3}
 			Convey("Then MarshalBinary returns []byte{1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3}", func() {
@@ -172,11 +172,11 @@ func TestJoinRequestPayload(t *testing.T) {
 
 		Convey("Given the slice []byte{1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3}", func() {
 			b := []byte{1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3}
-			Convey("Then UnmarshalBinary returns a JoinRequestPayload with AppEUI=[8]byte{1, 1, 1, 1, 1, 1, 1, 1}, DevEUI=[8]byte{2, 2, 2, 2, 2, 2, 2, 2} and DevNonce=[2]byte{3, 3}", func() {
+			Convey("Then UnmarshalBinary returns a JoinRequestPayload with JoinEUI=[8]byte{1, 1, 1, 1, 1, 1, 1, 1}, DevEUI=[8]byte{2, 2, 2, 2, 2, 2, 2, 2} and DevNonce=[2]byte{3, 3}", func() {
 				err := p.UnmarshalBinary(true, b)
 				So(err, ShouldBeNil)
 				So(p, ShouldResemble, JoinRequestPayload{
-					AppEUI:   [8]byte{1, 1, 1, 1, 1, 1, 1, 1},
+					JoinEUI:  [8]byte{1, 1, 1, 1, 1, 1, 1, 1},
 					DevEUI:   [8]byte{2, 2, 2, 2, 2, 2, 2, 2},
 					DevNonce: [2]byte{3, 3},
 				})
