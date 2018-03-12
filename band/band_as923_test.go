@@ -27,7 +27,7 @@ func TestAS923Band(t *testing.T) {
 		})
 
 		Convey("Then GetDownlinkTXPower returns the exepcted value", func() {
-			So(band.GetDownlinkTXPower(), ShouldEqual, 14)
+			So(band.GetDownlinkTXPower(0), ShouldEqual, 14)
 		})
 
 		Convey("Then GetPingSlotFrequency returns the expected value", func() {

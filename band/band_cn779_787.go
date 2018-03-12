@@ -22,7 +22,7 @@ func (b *cn779Band) GetDefaults() Defaults {
 	}
 }
 
-func (b *cn779Band) GetDownlinkTXPower() int {
+func (b *cn779Band) GetDownlinkTXPower(freq int) int {
 	return 10
 }
 

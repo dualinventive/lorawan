@@ -24,7 +24,7 @@ func (b *au915Band) GetDefaults() Defaults {
 	}
 }
 
-func (b *au915Band) GetDownlinkTXPower() int {
+func (b *au915Band) GetDownlinkTXPower(freq int) int {
 	return 20
 }
 

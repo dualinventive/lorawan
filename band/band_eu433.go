@@ -22,7 +22,7 @@ func (b *eu443Band) GetDefaults() Defaults {
 	}
 }
 
-func (b *eu443Band) GetDownlinkTXPower() int {
+func (b *eu443Band) GetDownlinkTXPower(freq int) int {
 	return 10
 }
 

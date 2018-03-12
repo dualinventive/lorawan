@@ -172,8 +172,10 @@ type Band interface {
 	// channels.
 	GetEnabledUplinkChannelIndicesForLinkADRReqPayloads(deviceEnabledChannels []int, pls []lorawan.LinkADRReqPayload) ([]int, error)
 
-	// GetDownlinkTXPower returns the TX power for downlink transmissions.
-	GetDownlinkTXPower() int
+	// GetDownlinkTXPower returns the TX power for downlink transmissions
+	// using the given frequency. Depending the band, it could return different
+	// values for different frequencies.
+	GetDownlinkTXPower(frequency int) int
 
 	// GetDefaults returns the band defaults.
 	GetDefaults() Defaults

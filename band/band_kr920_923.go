@@ -22,7 +22,7 @@ func (b *kr920Band) GetDefaults() Defaults {
 	}
 }
 
-func (b *kr920Band) GetDownlinkTXPower() int {
+func (b *kr920Band) GetDownlinkTXPower(freq int) int {
 	return 23
 }
 
