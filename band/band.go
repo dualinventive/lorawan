@@ -330,7 +330,7 @@ func (b *band) GetCustomUplinkChannelIndices() []int {
 			out = append(out, i)
 		}
 	}
-	return nil
+	return out
 }
 
 func (b *band) GetEnabledUplinkChannelIndices() []int {

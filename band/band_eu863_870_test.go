@@ -61,6 +61,10 @@ func TestEU863Band(t *testing.T) {
 				band.AddChannel(c, 0, 5)
 			}
 
+			Convey("Then these are returned as custom channels", func() {
+				So(band.GetCustomUplinkChannelIndices(), ShouldResemble, []int{3, 4, 5, 6, 7})
+			})
+
 			Convey("When testing the LinkADRReqPayload functions", func() {
 				tests := []struct {
 					Name                       string
