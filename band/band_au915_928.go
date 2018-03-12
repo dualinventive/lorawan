@@ -150,20 +150,20 @@ func newAU915Band(repeaterCompatible bool) (Band, error) {
 	b := au915Band{
 		band: band{
 			dataRates: map[int]DataRate{
-				0: {Modulation: LoRaModulation, SpreadFactor: 12, Bandwidth: 125},
-				1: {Modulation: LoRaModulation, SpreadFactor: 11, Bandwidth: 125},
-				2: {Modulation: LoRaModulation, SpreadFactor: 10, Bandwidth: 125},
-				3: {Modulation: LoRaModulation, SpreadFactor: 9, Bandwidth: 125},
-				4: {Modulation: LoRaModulation, SpreadFactor: 8, Bandwidth: 125},
-				5: {Modulation: LoRaModulation, SpreadFactor: 7, Bandwidth: 125},
-				6: {Modulation: LoRaModulation, SpreadFactor: 8, Bandwidth: 500},
+				0: {Modulation: LoRaModulation, SpreadFactor: 12, Bandwidth: 125, uplink: true},
+				1: {Modulation: LoRaModulation, SpreadFactor: 11, Bandwidth: 125, uplink: true},
+				2: {Modulation: LoRaModulation, SpreadFactor: 10, Bandwidth: 125, uplink: true},
+				3: {Modulation: LoRaModulation, SpreadFactor: 9, Bandwidth: 125, uplink: true},
+				4: {Modulation: LoRaModulation, SpreadFactor: 8, Bandwidth: 125, uplink: true},
+				5: {Modulation: LoRaModulation, SpreadFactor: 7, Bandwidth: 125, uplink: true},
+				6: {Modulation: LoRaModulation, SpreadFactor: 8, Bandwidth: 500, uplink: true},
 				// 7
-				8:  {Modulation: LoRaModulation, SpreadFactor: 12, Bandwidth: 500},
-				9:  {Modulation: LoRaModulation, SpreadFactor: 11, Bandwidth: 500},
-				10: {Modulation: LoRaModulation, SpreadFactor: 10, Bandwidth: 500},
-				11: {Modulation: LoRaModulation, SpreadFactor: 9, Bandwidth: 500},
-				12: {Modulation: LoRaModulation, SpreadFactor: 8, Bandwidth: 500},
-				13: {Modulation: LoRaModulation, SpreadFactor: 7, Bandwidth: 500},
+				8:  {Modulation: LoRaModulation, SpreadFactor: 12, Bandwidth: 500, downlink: true},
+				9:  {Modulation: LoRaModulation, SpreadFactor: 11, Bandwidth: 500, downlink: true},
+				10: {Modulation: LoRaModulation, SpreadFactor: 10, Bandwidth: 500, downlink: true},
+				11: {Modulation: LoRaModulation, SpreadFactor: 9, Bandwidth: 500, downlink: true},
+				12: {Modulation: LoRaModulation, SpreadFactor: 8, Bandwidth: 500, downlink: true},
+				13: {Modulation: LoRaModulation, SpreadFactor: 7, Bandwidth: 500, downlink: true},
 			},
 			rx1DataRateTable: map[int][]int{
 				0: {8, 8, 8, 8, 8, 8},

@@ -43,12 +43,12 @@ func newKR920Band() (Band, error) {
 		band: band{
 			supportsExtraChannels: true,
 			dataRates: map[int]DataRate{
-				0: {Modulation: LoRaModulation, SpreadFactor: 12, Bandwidth: 125},
-				1: {Modulation: LoRaModulation, SpreadFactor: 11, Bandwidth: 125},
-				2: {Modulation: LoRaModulation, SpreadFactor: 10, Bandwidth: 125},
-				3: {Modulation: LoRaModulation, SpreadFactor: 9, Bandwidth: 125},
-				4: {Modulation: LoRaModulation, SpreadFactor: 8, Bandwidth: 125},
-				5: {Modulation: LoRaModulation, SpreadFactor: 7, Bandwidth: 125},
+				0: {Modulation: LoRaModulation, SpreadFactor: 12, Bandwidth: 125, uplink: true, downlink: true},
+				1: {Modulation: LoRaModulation, SpreadFactor: 11, Bandwidth: 125, uplink: true, downlink: true},
+				2: {Modulation: LoRaModulation, SpreadFactor: 10, Bandwidth: 125, uplink: true, downlink: true},
+				3: {Modulation: LoRaModulation, SpreadFactor: 9, Bandwidth: 125, uplink: true, downlink: true},
+				4: {Modulation: LoRaModulation, SpreadFactor: 8, Bandwidth: 125, uplink: true, downlink: true},
+				5: {Modulation: LoRaModulation, SpreadFactor: 7, Bandwidth: 125, uplink: true, downlink: true},
 			},
 			rx1DataRateTable: map[int][]int{
 				0: {0, 0, 0, 0, 0, 0},

@@ -143,6 +143,41 @@ func TestUS902Band(t *testing.T) {
 			})
 		})
 
+		Convey("Then GetDataRateIndex returns the expected data-rate index", func() {
+			tests := []struct {
+				DataRate   DataRate
+				Uplink     bool
+				ExpectedDR int
+			}{
+				{
+					DataRate:   DataRate{Modulation: LoRaModulation, SpreadFactor: 10, Bandwidth: 125},
+					Uplink:     true,
+					ExpectedDR: 0,
+				},
+				{
+					DataRate:   DataRate{Modulation: LoRaModulation, SpreadFactor: 12, Bandwidth: 500},
+					Uplink:     false,
+					ExpectedDR: 8,
+				},
+				{
+					DataRate:   DataRate{Modulation: LoRaModulation, SpreadFactor: 8, Bandwidth: 500},
+					Uplink:     true,
+					ExpectedDR: 4,
+				},
+				{
+					DataRate:   DataRate{Modulation: LoRaModulation, SpreadFactor: 8, Bandwidth: 500},
+					Uplink:     false,
+					ExpectedDR: 12,
+				},
+			}
+
+			for _, t := range tests {
+				dr, err := band.GetDataRateIndex(t.Uplink, t.DataRate)
+				So(err, ShouldBeNil)
+				So(dr, ShouldEqual, t.ExpectedDR)
+			}
+		})
+
 		Convey("When testing GetLinkADRReqPayloadsForEnabledChannels", func() {
 			var filteredChans []int
 			for i := 8; i < 72; i++ {

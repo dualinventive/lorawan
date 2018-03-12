@@ -38,7 +38,8 @@ const (
 
 // DataRate defines a data rate
 type DataRate struct {
-	uplink       bool
+	uplink       bool       // data-rate can be used for uplink
+	downlink     bool       // data-rate can be used for downlink
 	Modulation   Modulation `json:"modulation"`
 	SpreadFactor int        `json:"spreadFactor,omitempty"` // used for LoRa
 	Bandwidth    int        `json:"bandwidth,omitempty"`    // in kHz, used for LoRa
@@ -189,10 +190,18 @@ type band struct {
 }
 
 func (b *band) GetDataRateIndex(uplink bool, dataRate DataRate) (int, error) {
-	dataRate.uplink = uplink
 	for i, d := range b.dataRates {
-		if d == dataRate {
-			return i, nil
+		// some bands implement different data-rates with the same parameters
+		// for uplink and downlink
+		if uplink {
+			if d.uplink == true && d.Modulation == dataRate.Modulation && d.Bandwidth == dataRate.Bandwidth && d.BitRate == dataRate.BitRate && d.SpreadFactor == dataRate.SpreadFactor {
+				return i, nil
+			}
+		}
+		if !uplink {
+			if d.downlink == true && d.Modulation == dataRate.Modulation && d.Bandwidth == dataRate.Bandwidth && d.BitRate == dataRate.BitRate && d.SpreadFactor == dataRate.SpreadFactor {
+				return i, nil
+			}
 		}
 	}
 	return 0, errors.New("lorawan/band: data-rate not found")
