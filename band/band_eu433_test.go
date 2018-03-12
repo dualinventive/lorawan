@@ -48,7 +48,7 @@ func TestEU433Band(t *testing.T) {
 		})
 
 		Convey("Then the max payload size (N) is 222 for DR4", func() {
-			s, err := band.GetMaxPayloadSizeForDataRateIndex(4)
+			s, err := band.GetMaxPayloadSizeForDataRateIndex(LoRaWAN_1_0_2, RegParamRevB, 4)
 			So(err, ShouldBeNil)
 			So(s.N, ShouldEqual, 222)
 		})
@@ -59,7 +59,7 @@ func TestEU433Band(t *testing.T) {
 		So(err, ShouldBeNil)
 
 		Convey("Then the max payload size (N) is 242 for DR4", func() {
-			s, err := band.GetMaxPayloadSizeForDataRateIndex(4)
+			s, err := band.GetMaxPayloadSizeForDataRateIndex(LoRaWAN_1_0_2, RegParamRevB, 4)
 			So(err, ShouldBeNil)
 			So(s.N, ShouldEqual, 242)
 		})

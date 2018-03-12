@@ -14,6 +14,20 @@ import (
 // Name defines the band-name type.
 type Name string
 
+// Available protocol versions.
+const (
+	LoRaWAN_1_0_1 = "1.0.1"
+	LoRaWAN_1_0_2 = "1.0.2"
+	LoRaWAN_1_1_0 = "1.1.0"
+)
+
+// Regional parameters revisions.
+const (
+	RegParamRevA = "A"
+	RegParamRevB = "B"
+	RegParamRevC = "C"
+)
+
 // Available ISM bands.
 const (
 	AS_923     Name = "AS_923"
@@ -94,8 +108,14 @@ type Band interface {
 	GetDataRate(dr int) (DataRate, error)
 
 	// GetMaxPayloadSizeForDataRateIndex returns the max-payload size for the
-	// given data-rate index.
-	GetMaxPayloadSizeForDataRateIndex(dr int) (MaxPayloadSize, error)
+	// given data-rate index, protocol version and regional-parameters revision.
+	// The protocol-version and regional-parameters revision must be given
+	// to make sure the maximum payload size is not exceeded when communicating
+	// with a device implementing a less recent revision (which could cause
+	// the device to reject the payload).
+	// When the version or revision is unknown, it will return the most recent
+	// implemented revision values.
+	GetMaxPayloadSizeForDataRateIndex(protocolVersion, regParamRevision string, dr int) (MaxPayloadSize, error)
 
 	// GetRX1DataRateIndex returns the RX1 data-rate given the uplink data-rate
 	// and RX1 data-rate offset.
@@ -218,7 +238,7 @@ func (b *band) GetDataRate(dr int) (DataRate, error) {
 	return d, nil
 }
 
-func (b *band) GetMaxPayloadSizeForDataRateIndex(dr int) (MaxPayloadSize, error) {
+func (b *band) GetMaxPayloadSizeForDataRateIndex(protocolVersion, regParamRevision string, dr int) (MaxPayloadSize, error) {
 	ps, ok := b.maxPayloadSizePerDR[dr]
 	if !ok {
 		return MaxPayloadSize{}, errors.New("lorawan/band: invalid data-rate")
