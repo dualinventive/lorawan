@@ -29,6 +29,12 @@ func TestNetID(t *testing.T) {
 				So(err, ShouldBeNil)
 				So(v, ShouldResemble, driver.Value(netID[:]))
 			})
+
+			Convey("Then MarshalBinary returns the expected value", func() {
+				b, err := netID.MarshalBinary()
+				So(err, ShouldBeNil)
+				So(b, ShouldResemble, []byte{219, 2, 1})
+			})
 		})
 
 		Convey("Given the string 0102db", func() {
@@ -45,6 +51,17 @@ func TestNetID(t *testing.T) {
 			Convey("Then Scan scans the value correctly", func() {
 				So(netID.Scan(b), ShouldBeNil)
 				So(netID[:], ShouldResemble, b)
+			})
+		})
+
+		Convey("Given []byte{219, 2, 1}", func() {
+			b := []byte{219, 2, 1}
+
+			Convey("Then UnmarshalBinary returns the expected NetID", func() {
+				var netID NetID
+				So(netID.UnmarshalBinary(b), ShouldBeNil)
+
+				So(netID, ShouldEqual, NetID{1, 2, 219})
 			})
 		})
 	})

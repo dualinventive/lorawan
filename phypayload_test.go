@@ -458,6 +458,79 @@ func TestPHYPayloadJoinAccept(t *testing.T) {
 	})
 }
 
+func TestPHYPayloadRejoinRequest02(t *testing.T) {
+	Convey("Given a PHYPayload and a key", t, func() {
+		phy := PHYPayload{
+			MHDR: MHDR{
+				MType: RejoinRequest,
+				Major: LoRaWANR1,
+			},
+			MACPayload: &RejoinRequestType02Payload{
+				RejoinType: 2,
+				NetID:      NetID{1, 2, 3},
+				DevEUI:     EUI64{1, 2, 3, 4, 5, 6, 7, 8},
+				RJCount0:   219,
+			},
+		}
+		var key AES128Key
+
+		Convey("Then SetMIC sets the expected MIC", func() {
+			So(phy.SetMIC(key), ShouldBeNil)
+			So(phy.MIC, ShouldEqual, MIC{60, 134, 66, 174})
+			valid, err := phy.ValidateMIC(key)
+			So(err, ShouldBeNil)
+			So(valid, ShouldBeTrue)
+
+			Convey("Then MarshalBinary returns the expected value", func() {
+				b, err := phy.MarshalBinary()
+				So(err, ShouldBeNil)
+				So(b, ShouldResemble, []byte{192, 2, 3, 2, 1, 8, 7, 6, 5, 4, 3, 2, 1, 219, 0, 60, 134, 66, 174})
+
+				Convey("Then UnmarshalBinary returns the expected object", func() {
+					var newPhy PHYPayload
+					So(newPhy.UnmarshalBinary(b), ShouldBeNil)
+					So(newPhy, ShouldResemble, phy)
+				})
+			})
+		})
+	})
+}
+
+func TestPHYPayloadRejoinRequest1(t *testing.T) {
+	Convey("Given a PHYPayload and a key", t, func() {
+		phy := PHYPayload{
+			MHDR: MHDR{
+				MType: RejoinRequest,
+				Major: LoRaWANR1,
+			},
+			MACPayload: &RejoinRequestType1Payload{
+				RejoinType: 1,
+				JoinEUI:    EUI64{1, 2, 3, 4, 5, 6, 7, 8},
+				DevEUI:     EUI64{9, 10, 11, 12, 13, 14, 15, 16},
+				RJCount1:   219,
+			},
+		}
+		var key AES128Key
+
+		Convey("Then SetMIC sets the expected MIC", func() {
+			So(phy.SetMIC(key), ShouldBeNil)
+			So(phy.MIC, ShouldEqual, MIC{234, 195, 16, 114})
+
+			Convey("Then MarshalBinary returns the expected value", func() {
+				b, err := phy.MarshalBinary()
+				So(err, ShouldBeNil)
+				So(b, ShouldResemble, []byte{192, 1, 8, 7, 6, 5, 4, 3, 2, 1, 16, 15, 14, 13, 12, 11, 10, 9, 219, 0, 234, 195, 16, 114})
+
+				Convey("Then UnmarshalBinary returns the expected object", func() {
+					var newPhy PHYPayload
+					So(newPhy.UnmarshalBinary(b), ShouldBeNil)
+					So(newPhy, ShouldResemble, phy)
+				})
+			})
+		})
+	})
+}
+
 func ExamplePHYPayload_encode() {
 	nwkSKey := [16]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16}
 	appSKey := [16]byte{16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1}

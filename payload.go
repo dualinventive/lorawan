@@ -295,11 +295,14 @@ func (p JoinAcceptPayload) MarshalBinary() ([]byte, error) {
 	for i := len(p.AppNonce) - 1; i >= 0; i-- {
 		out = append(out, p.AppNonce[i])
 	}
-	for i := len(p.NetID) - 1; i >= 0; i-- {
-		out = append(out, p.NetID[i])
-	}
 
-	b, err := p.DevAddr.MarshalBinary()
+	b, err := p.NetID.MarshalBinary()
+	if err != nil {
+		return nil, err
+	}
+	out = append(out, b...)
+
+	b, err = p.DevAddr.MarshalBinary()
 	if err != nil {
 		return nil, err
 	}
@@ -334,8 +337,9 @@ func (p *JoinAcceptPayload) UnmarshalBinary(uplink bool, data []byte) error {
 	for i, v := range data[0:3] {
 		p.AppNonce[2-i] = v
 	}
-	for i, v := range data[3:6] {
-		p.NetID[2-i] = v
+
+	if err := p.NetID.UnmarshalBinary(data[3:6]); err != nil {
+		return err
 	}
 
 	if err := p.DevAddr.UnmarshalBinary(data[6:10]); err != nil {
@@ -352,6 +356,122 @@ func (p *JoinAcceptPayload) UnmarshalBinary(uplink bool, data []byte) error {
 			return err
 		}
 	}
+
+	return nil
+}
+
+// RejoinRequestType02Payload represents a rejoin-request of type 0 or 2.
+type RejoinRequestType02Payload struct {
+	RejoinType uint8  `json:"rejoinType"`
+	NetID      NetID  `json:"netID"`
+	DevEUI     EUI64  `json:"devEUI"`
+	RJCount0   uint16 `json:"rjCount0"`
+}
+
+// MarshalBinary marshals the object in binary form.
+func (p RejoinRequestType02Payload) MarshalBinary() ([]byte, error) {
+	if p.RejoinType != 0 && p.RejoinType != 2 {
+		return nil, errors.New("lorawan: RejoinType must be 0 or 2")
+	}
+
+	out := make([]byte, 0, 14)
+
+	out = append(out, p.RejoinType)
+
+	b, err := p.NetID.MarshalBinary()
+	if err != nil {
+		return nil, err
+	}
+	out = append(out, b...)
+
+	b, err = p.DevEUI.MarshalBinary()
+	if err != nil {
+		return nil, err
+	}
+	out = append(out, b...)
+
+	b = make([]byte, 2)
+	binary.LittleEndian.PutUint16(b, p.RJCount0)
+	out = append(out, b...)
+
+	return out, nil
+}
+
+// UnmarshalBinary decodes the object from binary form.
+func (p *RejoinRequestType02Payload) UnmarshalBinary(uplink bool, data []byte) error {
+	if len(data) != 14 {
+		return errors.New("lorawan: 14 bytes of data are expected")
+	}
+
+	p.RejoinType = data[0]
+
+	if err := p.NetID.UnmarshalBinary(data[1:4]); err != nil {
+		return err
+	}
+
+	if err := p.DevEUI.UnmarshalBinary(data[4:12]); err != nil {
+		return err
+	}
+
+	p.RJCount0 = binary.LittleEndian.Uint16(data[12:14])
+
+	return nil
+}
+
+// RejoinRequestType1Payload represents a rejoin-request of type 1.
+type RejoinRequestType1Payload struct {
+	RejoinType uint8  `json:"rejoinRequest"`
+	JoinEUI    EUI64  `json:"joinEUI"`
+	DevEUI     EUI64  `json:"devEUI"`
+	RJCount1   uint16 `json:"rjCount1"`
+}
+
+// MarshalBinary marshals the object in binary form.
+func (p RejoinRequestType1Payload) MarshalBinary() ([]byte, error) {
+	if p.RejoinType != 1 {
+		return nil, errors.New("lorawan: RejoinType must be 1")
+	}
+
+	out := make([]byte, 0, 19)
+
+	out = append(out, p.RejoinType)
+
+	b, err := p.JoinEUI.MarshalBinary()
+	if err != nil {
+		return nil, err
+	}
+	out = append(out, b...)
+
+	b, err = p.DevEUI.MarshalBinary()
+	if err != nil {
+		return nil, err
+	}
+	out = append(out, b...)
+
+	b = make([]byte, 2)
+	binary.LittleEndian.PutUint16(b, p.RJCount1)
+	out = append(out, b...)
+
+	return out, nil
+}
+
+// UnmarshalBinary decodes the object from binary form.
+func (p *RejoinRequestType1Payload) UnmarshalBinary(uplink bool, data []byte) error {
+	if len(data) != 19 {
+		return errors.New("lorawan: 19 bytes of data are expected")
+	}
+
+	p.RejoinType = data[0]
+
+	if err := p.JoinEUI.UnmarshalBinary(data[1:9]); err != nil {
+		return err
+	}
+
+	if err := p.DevEUI.UnmarshalBinary(data[9:17]); err != nil {
+		return err
+	}
+
+	p.RJCount1 = binary.LittleEndian.Uint16(data[17:19])
 
 	return nil
 }

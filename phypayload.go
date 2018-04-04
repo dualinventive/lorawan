@@ -35,7 +35,7 @@ const (
 	UnconfirmedDataDown
 	ConfirmedDataUp
 	ConfirmedDataDown
-	RFU
+	RejoinRequest
 	Proprietary
 )
 
@@ -193,25 +193,22 @@ func (p PHYPayload) calculateMIC(key AES128Key) ([]byte, error) {
 	return hb[0:4], nil
 }
 
-// calculateJoinRequestMIC calculates and returns the join-request MIC.
-func (p PHYPayload) calculateJoinRequestMIC(key AES128Key) ([]byte, error) {
+// calculateMACPayloadMIC generates and returns the MIC over the MHDR + the
+// binary representation of the MACPayload field.
+func (p PHYPayload) calculateMACPayloadMIC(key AES128Key) ([]byte, error) {
 	if p.MACPayload == nil {
-		return []byte{}, errors.New("lorawan: MACPayload should not be empty")
-	}
-	jrPayload, ok := p.MACPayload.(*JoinRequestPayload)
-	if !ok {
-		return []byte{}, errors.New("lorawan: MACPayload should be of type *JoinRequestPayload")
+		return nil, errors.New("lorawan: MACPayload must not be empty")
 	}
 
-	micBytes := make([]byte, 0, 19)
+	var micBytes []byte
 
 	b, err := p.MHDR.MarshalBinary()
 	if err != nil {
-		return []byte{}, err
+		return nil, err
 	}
 	micBytes = append(micBytes, b...)
 
-	b, err = jrPayload.MarshalBinary()
+	b, err = p.MACPayload.MarshalBinary()
 	if err != nil {
 		return nil, err
 	}
@@ -219,52 +216,14 @@ func (p PHYPayload) calculateJoinRequestMIC(key AES128Key) ([]byte, error) {
 
 	hash, err := cmac.New(key[:])
 	if err != nil {
-		return []byte{}, err
+		return nil, err
 	}
 	if _, err = hash.Write(micBytes); err != nil {
 		return nil, err
 	}
 	hb := hash.Sum([]byte{})
 	if len(hb) < 4 {
-		return []byte{}, errors.New("lorawan: the hash returned less than 4 bytes")
-	}
-	return hb[0:4], nil
-}
-
-// calculateJoinAcceptMIC calculates and returns the join-accept MIC.
-func (p PHYPayload) calculateJoinAcceptMIC(key AES128Key) ([]byte, error) {
-	if p.MACPayload == nil {
-		return []byte{}, errors.New("lorawan: MACPayload should not be empty")
-	}
-	jaPayload, ok := p.MACPayload.(*JoinAcceptPayload)
-	if !ok {
-		return []byte{}, errors.New("lorawan: MACPayload should be of type *JoinAcceptPayload")
-	}
-
-	micBytes := make([]byte, 0, 13)
-
-	b, err := p.MHDR.MarshalBinary()
-	if err != nil {
-		return []byte{}, err
-	}
-	micBytes = append(micBytes, b...)
-
-	b, err = jaPayload.MarshalBinary()
-	if err != nil {
-		return nil, err
-	}
-	micBytes = append(micBytes, b...)
-
-	hash, err := cmac.New(key[:])
-	if err != nil {
-		return []byte{}, err
-	}
-	if _, err = hash.Write(micBytes); err != nil {
-		return nil, err
-	}
-	hb := hash.Sum([]byte{})
-	if len(hb) < 4 {
-		return []byte{}, errors.New("lorawan: the hash returned less than 4 bytes")
+		return nil, errors.New("lorawan: the hash returned less than 4 bytes")
 	}
 	return hb[0:4], nil
 }
@@ -276,9 +235,13 @@ func (p *PHYPayload) SetMIC(key AES128Key) error {
 
 	switch p.MACPayload.(type) {
 	case *JoinRequestPayload:
-		mic, err = p.calculateJoinRequestMIC(key)
+		mic, err = p.calculateMACPayloadMIC(key)
 	case *JoinAcceptPayload:
-		mic, err = p.calculateJoinAcceptMIC(key)
+		mic, err = p.calculateMACPayloadMIC(key)
+	case *RejoinRequestType02Payload:
+		mic, err = p.calculateMACPayloadMIC(key)
+	case *RejoinRequestType1Payload:
+		mic, err = p.calculateMACPayloadMIC(key)
 	default:
 		mic, err = p.calculateMIC(key)
 	}
@@ -307,9 +270,13 @@ func (p PHYPayload) ValidateMIC(key AES128Key) (bool, error) {
 
 	switch p.MACPayload.(type) {
 	case *JoinRequestPayload:
-		mic, err = p.calculateJoinRequestMIC(key)
+		mic, err = p.calculateMACPayloadMIC(key)
 	case *JoinAcceptPayload:
-		mic, err = p.calculateJoinAcceptMIC(key)
+		mic, err = p.calculateMACPayloadMIC(key)
+	case *RejoinRequestType02Payload:
+		mic, err = p.calculateMACPayloadMIC(key)
+	case *RejoinRequestType1Payload:
+		mic, err = p.calculateMACPayloadMIC(key)
 	default:
 		mic, err = p.calculateMIC(key)
 	}
@@ -500,6 +467,15 @@ func (p *PHYPayload) UnmarshalBinary(data []byte) error {
 		p.MACPayload = &JoinRequestPayload{}
 	case JoinAccept:
 		p.MACPayload = &DataPayload{}
+	case RejoinRequest:
+		switch data[1] {
+		case 0, 2:
+			p.MACPayload = &RejoinRequestType02Payload{}
+		case 1:
+			p.MACPayload = &RejoinRequestType1Payload{}
+		default:
+			return fmt.Errorf("lorawan: invalid RejoinType %d", data[1])
+		}
 	case Proprietary:
 		p.MACPayload = &DataPayload{}
 	default:

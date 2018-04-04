@@ -302,3 +302,98 @@ func TestJoinAcceptPayload(t *testing.T) {
 		})
 	})
 }
+
+func TestRejoinRequestType02Payload(t *testing.T) {
+	Convey("Given a set of tests", t, func() {
+		testTable := []struct {
+			Payload       RejoinRequestType02Payload
+			Bytes         []byte
+			ExpectedError error
+		}{
+			{
+				Payload: RejoinRequestType02Payload{
+					RejoinType: 0,
+					NetID:      NetID{1, 2, 3},
+					DevEUI:     EUI64{9, 10, 11, 12, 13, 14, 15, 16},
+					RJCount0:   219,
+				},
+				Bytes: []byte{0, 3, 2, 1, 16, 15, 14, 13, 12, 11, 10, 9, 219, 0},
+			},
+			{
+				Payload: RejoinRequestType02Payload{
+					RejoinType: 1,
+					NetID:      NetID{1, 2, 3},
+					DevEUI:     EUI64{9, 10, 11, 12, 13, 14, 15, 16},
+					RJCount0:   219,
+				},
+				ExpectedError: errors.New("lorawan: RejoinType must be 0 or 2"),
+			},
+			{
+				Payload: RejoinRequestType02Payload{
+					RejoinType: 2,
+					NetID:      NetID{1, 2, 3},
+					DevEUI:     EUI64{9, 10, 11, 12, 13, 14, 15, 16},
+					RJCount0:   219,
+				},
+				Bytes: []byte{2, 3, 2, 1, 16, 15, 14, 13, 12, 11, 10, 9, 219, 0},
+			},
+		}
+
+		for _, test := range testTable {
+			b, err := test.Payload.MarshalBinary()
+			So(err, ShouldResemble, test.ExpectedError)
+			So(b, ShouldResemble, test.Bytes)
+
+			if test.ExpectedError != nil {
+				continue
+			}
+
+			var pl RejoinRequestType02Payload
+			So(pl.UnmarshalBinary(true, b), ShouldBeNil)
+			So(pl, ShouldResemble, test.Payload)
+		}
+	})
+}
+
+func TestRejoinRequestType1Payload(t *testing.T) {
+	Convey("Given a set of tests", t, func() {
+		testTable := []struct {
+			Payload       RejoinRequestType1Payload
+			Bytes         []byte
+			ExpectedError error
+		}{
+			{
+				Payload: RejoinRequestType1Payload{
+					RejoinType: 1,
+					JoinEUI:    EUI64{1, 2, 3, 4, 5, 6, 7, 8},
+					DevEUI:     EUI64{9, 10, 11, 12, 13, 14, 15, 16},
+					RJCount1:   219,
+				},
+				Bytes: []byte{1, 8, 7, 6, 5, 4, 3, 2, 1, 16, 15, 14, 13, 12, 11, 10, 9, 219, 0},
+			},
+			{
+				Payload: RejoinRequestType1Payload{
+					RejoinType: 2,
+					JoinEUI:    EUI64{1, 2, 3, 4, 5, 6, 7, 8},
+					DevEUI:     EUI64{9, 10, 11, 12, 13, 14, 15, 16},
+					RJCount1:   219,
+				},
+				ExpectedError: errors.New("lorawan: RejoinType must be 1"),
+			},
+		}
+
+		for _, test := range testTable {
+			b, err := test.Payload.MarshalBinary()
+			So(err, ShouldResemble, test.ExpectedError)
+			So(b, ShouldResemble, test.Bytes)
+
+			if test.ExpectedError != nil {
+				continue
+			}
+
+			var pl RejoinRequestType1Payload
+			So(pl.UnmarshalBinary(true, b), ShouldBeNil)
+			So(pl, ShouldResemble, test.Payload)
+		}
+	})
+}
