@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"log"
 	"sync"
 	"time"
 )
@@ -959,4 +960,42 @@ func (p *DeviceTimeAnsPayload) UnmarshalBinary(data []byte) error {
 	p.TimeSinceGPSEpoch += time.Duration(data[4]) * 3906250
 
 	return nil
+}
+
+// decodeDataPayloadToMACCommands decodes a DataPayload into a slice of
+// MACCommands.
+func decodeDataPayloadToMACCommands(uplink bool, payloads []Payload) ([]Payload, error) {
+	if len(payloads) != 1 {
+		return nil, errors.New("lorawan: exactly one Payload expected")
+	}
+
+	dataPL, ok := payloads[0].(*DataPayload)
+	if !ok {
+		return nil, fmt.Errorf("lorawan: expected *DataPayload, got %T", payloads[0])
+	}
+
+	var plLen int
+	var out []Payload
+
+	for i := 0; i < len(dataPL.Bytes); i++ {
+		if _, s, err := GetMACPayloadAndSize(uplink, CID(dataPL.Bytes[i])); err != nil {
+			plLen = 0
+		} else {
+			plLen = s
+		}
+
+		if len(dataPL.Bytes[i:]) < plLen+1 {
+			return nil, errors.New("lorawan: not enough remaining bytes")
+		}
+
+		mc := &MACCommand{}
+		if err := mc.UnmarshalBinary(uplink, dataPL.Bytes[i:i+1+plLen]); err != nil {
+			log.Printf("warning: unmarshal mac-command error (skipping remaining mac-command bytes): %s", err)
+		}
+
+		out = append(out, mc)
+		i = i + plLen
+	}
+
+	return out, nil
 }

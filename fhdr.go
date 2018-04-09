@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"log"
 )
 
 // DevAddr represents the device address.
@@ -125,10 +124,10 @@ func (c *FCtrl) UnmarshalBinary(data []byte) error {
 
 // FHDR represents the frame header.
 type FHDR struct {
-	DevAddr DevAddr      `json:"devAddr"`
-	FCtrl   FCtrl        `json:"fCtrl"`
-	FCnt    uint32       `json:"fCnt"`  // only the least-significant 16 bits will be marshalled
-	FOpts   []MACCommand `json:"fOpts"` // max. number of allowed bytes is 15
+	DevAddr DevAddr   `json:"devAddr"`
+	FCtrl   FCtrl     `json:"fCtrl"`
+	FCnt    uint32    `json:"fCnt"`  // only the least-significant 16 bits will be marshalled
+	FOpts   []Payload `json:"fOpts"` // max. number of allowed bytes is 15
 }
 
 // MarshalBinary marshals the object in binary form.
@@ -186,28 +185,8 @@ func (h *FHDR) UnmarshalBinary(uplink bool, data []byte) error {
 	h.FCnt = binary.LittleEndian.Uint32(fCntBytes)
 
 	if len(data) > 7 {
-		var pLen int
-		for i := 0; i < len(data[7:]); i++ {
-			if _, s, err := GetMACPayloadAndSize(uplink, CID(data[7+i])); err != nil {
-				pLen = 0
-			} else {
-				pLen = s
-			}
-
-			// check if the remaining bytes are >= CID byte + payload size
-			if len(data[7+i:]) < pLen+1 {
-				return errors.New("lorawan: not enough remaining bytes")
-			}
-
-			mc := MACCommand{}
-			if err := mc.UnmarshalBinary(uplink, data[7+i:7+i+1+pLen]); err != nil {
-				log.Printf("warning: unmarshal mac-command error (skipping remaining mac-command bytes): %s", err)
-				break
-			}
-			h.FOpts = append(h.FOpts, mc)
-
-			// go to the next command (skip the payload bytes of the current command)
-			i = i + pLen
+		h.FOpts = []Payload{
+			&DataPayload{Bytes: data[7:]},
 		}
 	}
 

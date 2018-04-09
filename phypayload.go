@@ -366,6 +366,54 @@ func (p *PHYPayload) DecryptJoinAcceptPayload(appKey AES128Key) error {
 	return p.MACPayload.UnmarshalBinary(p.isUplink(), pt[0:len(pt)-4])
 }
 
+// EncryptFOpts encrypts the FOpts with the given key.
+func (p *PHYPayload) EncryptFOpts(nwkSEncKey AES128Key) error {
+	macPL, ok := p.MACPayload.(*MACPayload)
+	if !ok {
+		return errors.New("lorawan: MACPayload must be of type *MACPayload")
+	}
+
+	// nothing to encrypt
+	if len(macPL.FHDR.FOpts) == 0 {
+		return nil
+	}
+
+	var macB []byte
+	for _, mac := range macPL.FHDR.FOpts {
+		b, err := mac.MarshalBinary()
+		if err != nil {
+			return err
+		}
+		macB = append(macB, b...)
+	}
+
+	var aFCntDown bool
+	if !p.isUplink() && macPL.FPort != nil && *macPL.FPort > 0 {
+		aFCntDown = true
+	}
+
+	data, err := EncryptFOpts(nwkSEncKey, aFCntDown, p.isUplink(), macPL.FHDR.DevAddr, macPL.FHDR.FCnt, macB)
+	if err != nil {
+		return err
+	}
+
+	macPL.FHDR.FOpts = []Payload{
+		&DataPayload{Bytes: data},
+	}
+
+	return nil
+}
+
+// DecryptFOpts decrypts the FOpts payload and decodes it into mac-command
+// structures.
+func (p *PHYPayload) DecryptFOpts(nwkSEncKey AES128Key) error {
+	if err := p.EncryptFOpts(nwkSEncKey); err != nil {
+		return nil
+	}
+
+	return p.DecodeFOptsToMACCommands()
+}
+
 // EncryptFRMPayload encrypts the FRMPayload with the given key.
 func (p *PHYPayload) EncryptFRMPayload(key AES128Key) error {
 	macPL, ok := p.MACPayload.(*MACPayload)
@@ -406,25 +454,43 @@ func (p *PHYPayload) DecryptFRMPayload(key AES128Key) error {
 	}
 
 	// the FRMPayload contains MAC commands, which we need to unmarshal
+	var err error
 	if macPL.FPort != nil && *macPL.FPort == 0 {
-		return macPL.decodeFRMPayloadToMACCommands(p.isUplink())
+		macPL.FRMPayload, err = decodeDataPayloadToMACCommands(p.isUplink(), macPL.FRMPayload)
 	}
 
-	return nil
+	return err
 }
 
 // DecodeFRMPayloadToMACCommands decodes the (decrypted) FRMPayload bytes into
 // MAC commands. Note that after calling DecryptFRMPayload, this method is
 // called automatically when FPort=0.
-// Use this method when unmarshaling a decrypted FRMPayload from a slice
-// of bytes and this when DecryptFRMPayload is not called.
 func (p *PHYPayload) DecodeFRMPayloadToMACCommands() error {
 	macPL, ok := p.MACPayload.(*MACPayload)
 	if !ok {
 		return errors.New("lorawan: MACPayload must be of type *MACPayload")
 	}
 
-	return macPL.decodeFRMPayloadToMACCommands(p.isUplink())
+	var err error
+	macPL.FRMPayload, err = decodeDataPayloadToMACCommands(p.isUplink(), macPL.FRMPayload)
+	return err
+}
+
+// DecodeFOptsToMACCommands decodes the (decrypted) FOpts bytes into
+// MAC commands.
+func (p *PHYPayload) DecodeFOptsToMACCommands() error {
+	macPL, ok := p.MACPayload.(*MACPayload)
+	if !ok {
+		return errors.New("lorawan: MACPayload must be of type *MACPayload")
+	}
+
+	if len(macPL.FHDR.FOpts) == 0 {
+		return nil
+	}
+
+	var err error
+	macPL.FHDR.FOpts, err = decodeDataPayloadToMACCommands(p.isUplink(), macPL.FHDR.FOpts)
+	return err
 }
 
 // MarshalBinary marshals the object in binary form.
@@ -525,7 +591,7 @@ func (p PHYPayload) MarshalJSON() ([]byte, error) {
 // MIC calculation and MACPayload for Proprietary MType is still TODO.
 func (p PHYPayload) isUplink() bool {
 	switch p.MHDR.MType {
-	case JoinRequest, UnconfirmedDataUp, ConfirmedDataUp:
+	case JoinRequest, UnconfirmedDataUp, ConfirmedDataUp, RejoinRequest:
 		return true
 	default:
 		return false
@@ -562,6 +628,60 @@ func EncryptFRMPayload(key AES128Key, uplink bool, devAddr DevAddr, fCnt uint32,
 	}
 	copy(a[6:10], b)
 	binary.LittleEndian.PutUint32(a[10:14], uint32(fCnt))
+
+	for i := 0; i < len(data)/16; i++ {
+		a[15] = byte(i + 1)
+		block.Encrypt(s, a)
+
+		for j := 0; j < len(s); j++ {
+			data[i*16+j] = data[i*16+j] ^ s[j]
+		}
+	}
+
+	return data[0:pLen], nil
+}
+
+// EncryptFOpts encrypts the FOpts mac-commands.
+// For uplink:
+//   Set the aFCntDown to false and use the FCntUp
+// For downlink if FPort is not set or equals to 0:
+//   Set the aFCntDown to false and use the NFCntDown
+// For downlink if FPort > 0:
+//   Set the aFCntDown to true and use the AFCntDown
+func EncryptFOpts(nwkSEncKey AES128Key, aFCntDown, uplink bool, devAddr DevAddr, fCnt uint32, data []byte) ([]byte, error) {
+	pLen := len(data)
+	if pLen%16 != 0 {
+		// make data a multiple of 16
+		data = append(data, make([]byte, 16-(pLen%16))...)
+	}
+
+	block, err := aes.NewCipher(nwkSEncKey[:])
+	if err != nil {
+		return nil, err
+	}
+	if block.BlockSize() != 16 {
+		return nil, errors.New("lorawan: block size of 16 was expected")
+	}
+
+	s := make([]byte, 16)
+	a := make([]byte, 16)
+	a[0] = 0x01
+	if aFCntDown {
+		a[1] = 0x02
+	} else {
+		a[1] = 0x01
+	}
+
+	if !uplink {
+		a[5] = 0x01
+	}
+
+	b, err := devAddr.MarshalBinary()
+	if err != nil {
+		return nil, err
+	}
+	copy(a[6:10], b)
+	binary.LittleEndian.PutUint32(a[10:14], fCnt)
 
 	for i := 0; i < len(data)/16; i++ {
 		a[15] = byte(i + 1)

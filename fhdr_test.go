@@ -158,8 +158,8 @@ func TestFHDR(t *testing.T) {
 			h.DevAddr = DevAddr([4]byte{1, 2, 3, 4})
 			h.FCtrl = FCtrl{ADR: true, ADRACKReq: false, ACK: true, FPending: true}
 			h.FCnt = 5
-			h.FOpts = []MACCommand{
-				{CID: LinkCheckAns, Payload: &LinkCheckAnsPayload{Margin: 7, GwCnt: 9}},
+			h.FOpts = []Payload{
+				&MACCommand{CID: LinkCheckAns, Payload: &LinkCheckAnsPayload{Margin: 7, GwCnt: 9}},
 			}
 			Convey("Then MarshalBinary returns []byte{4, 3, 2, 1, 179, 5, 0, 2, 7, 9}", func() {
 				b, err := h.MarshalBinary()
@@ -170,7 +170,7 @@ func TestFHDR(t *testing.T) {
 
 		Convey("Given FOpts contains 5 times MACCommand{(CID=LinkCheckAns, Payload=LinkCheckAnsPayload(Margin=7, GwCnt=9))}", func() {
 			for i := 0; i < 5; i++ {
-				h.FOpts = append(h.FOpts, MACCommand{CID: LinkCheckAns, Payload: &LinkCheckAnsPayload{Margin: 7, GwCnt: 9}})
+				h.FOpts = append(h.FOpts, &MACCommand{CID: LinkCheckAns, Payload: &LinkCheckAnsPayload{Margin: 7, GwCnt: 9}})
 			}
 			Convey("Then MarshalBinary does not return an error", func() {
 				_, err := h.MarshalBinary()
@@ -180,7 +180,7 @@ func TestFHDR(t *testing.T) {
 
 		Convey("Given FOpts contains 6 times MACCommand{(CID=LinkCheckAns, Payload=LinkCheckAnsPayload(Margin=7, GwCnt=9))}", func() {
 			for i := 0; i < 6; i++ {
-				h.FOpts = append(h.FOpts, MACCommand{CID: LinkCheckAns, Payload: &LinkCheckAnsPayload{Margin: 7, GwCnt: 9}})
+				h.FOpts = append(h.FOpts, &MACCommand{CID: LinkCheckAns, Payload: &LinkCheckAnsPayload{Margin: 7, GwCnt: 9}})
 			}
 			Convey("Then MarshalBinary does return an error", func() {
 				_, err := h.MarshalBinary()
@@ -192,6 +192,8 @@ func TestFHDR(t *testing.T) {
 			b := []byte{4, 3, 2, 1, 179, 5, 0, 2, 7, 9}
 			Convey("Then UnmarshalBinary does not return an error", func() {
 				err := h.UnmarshalBinary(false, b)
+				So(err, ShouldBeNil)
+				h.FOpts, err = decodeDataPayloadToMACCommands(false, h.FOpts)
 				So(err, ShouldBeNil)
 
 				Convey("Then DevAddr=[4]{1, 2, 3, 4}", func() {
@@ -205,13 +207,12 @@ func TestFHDR(t *testing.T) {
 				Convey("Then len(FOpts)=1", func() {
 					So(h.FOpts, ShouldHaveLength, 1)
 					Convey("Then CID=LinkCheckAns", func() {
-						So(h.FOpts[0].CID, ShouldEqual, LinkCheckAns)
+						So(h.FOpts[0].(*MACCommand).CID, ShouldEqual, LinkCheckAns)
 					})
-
 				})
 
 				Convey("Then Payload=LinkCheckAnsPayload(Margin=7, GwCnt=9)", func() {
-					p, ok := h.FOpts[0].Payload.(*LinkCheckAnsPayload)
+					p, ok := h.FOpts[0].(*MACCommand).Payload.(*LinkCheckAnsPayload)
 					So(ok, ShouldBeTrue)
 					So(p, ShouldResemble, &LinkCheckAnsPayload{Margin: 7, GwCnt: 9})
 				})
@@ -226,6 +227,8 @@ func TestFHDR(t *testing.T) {
 			Convey("Then UnmarshalBinary does not return an error", func() {
 				err := h.UnmarshalBinary(false, b)
 				So(err, ShouldBeNil)
+				h.FOpts, err = decodeDataPayloadToMACCommands(false, h.FOpts)
+				So(err, ShouldBeNil)
 
 				Convey("Then DevAddr=[4]{1, 2, 3, 4}", func() {
 					So(h.DevAddr, ShouldEqual, DevAddr([4]byte{1, 2, 3, 4}))
@@ -238,18 +241,18 @@ func TestFHDR(t *testing.T) {
 				Convey("Then len(FOpts)=3", func() {
 					So(h.FOpts, ShouldHaveLength, 3)
 					Convey("Then CID=LinkCheckAns", func() {
-						So(h.FOpts[0].CID, ShouldEqual, LinkCheckAns)
+						So(h.FOpts[0].(*MACCommand).CID, ShouldEqual, LinkCheckAns)
 					})
 
 				})
 
 				Convey("Then the remaining mac data is still available", func() {
-					So(h.FOpts[1].CID, ShouldEqual, 78)
-					So(h.FOpts[2].CID, ShouldEqual, 79)
+					So(h.FOpts[1].(*MACCommand).CID, ShouldEqual, 78)
+					So(h.FOpts[2].(*MACCommand).CID, ShouldEqual, 79)
 				})
 
 				Convey("Then Payload=LinkCheckAnsPayload(Margin=7, GwCnt=9)", func() {
-					p, ok := h.FOpts[0].Payload.(*LinkCheckAnsPayload)
+					p, ok := h.FOpts[0].(*MACCommand).Payload.(*LinkCheckAnsPayload)
 					So(ok, ShouldBeTrue)
 					So(p, ShouldResemble, &LinkCheckAnsPayload{Margin: 7, GwCnt: 9})
 				})
@@ -260,6 +263,8 @@ func TestFHDR(t *testing.T) {
 			b := []byte{1, 2, 3, 4, 179, 5, 0, 2, 7}
 			Convey("Then UnmarshalBinary returns an error", func() {
 				err := h.UnmarshalBinary(false, b)
+				So(err, ShouldBeNil)
+				h.FOpts, err = decodeDataPayloadToMACCommands(false, h.FOpts)
 				So(err, ShouldResemble, errors.New("lorawan: not enough remaining bytes"))
 			})
 		})
@@ -274,14 +279,16 @@ func TestFHDR(t *testing.T) {
 					MinDR:   1,
 				},
 			}
-			h.FOpts = []MACCommand{m}
+			h.FOpts = []Payload{&m}
 			Convey("When it is transformed into binary", func() {
 				b, err := h.MarshalBinary()
 				So(err, ShouldBeNil)
 				Convey("Then it can be converted back to the original payload", func() {
 					actual := FHDR{}
 					So(actual.UnmarshalBinary(false, b), ShouldBeNil)
-					So(actual.FOpts, ShouldResemble, []MACCommand{m})
+					actual.FOpts, err = decodeDataPayloadToMACCommands(false, actual.FOpts)
+					So(err, ShouldBeNil)
+					So(actual.FOpts, ShouldResemble, []Payload{&m})
 				})
 			})
 		})
