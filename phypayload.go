@@ -24,9 +24,6 @@ func (m MType) MarshalText() ([]byte, error) {
 	return []byte(m.String()), nil
 }
 
-// Major defines the major version of data message.
-type Major byte
-
 // Supported message types (MType)
 const (
 	JoinRequest MType = iota
@@ -39,9 +36,21 @@ const (
 	Proprietary
 )
 
+// Major defines the major version of data message.
+type Major byte
+
 // Supported major versions
 const (
 	LoRaWANR1 Major = 0
+)
+
+// MACVersion defines the LoRaWAN MAC version.
+type MACVersion byte
+
+// Supported LoRaWAN MAC versions.
+const (
+	LoRaWAN1_0 MACVersion = iota
+	LoRaWAN1_1
 )
 
 // MarshalText implements encoding.TextMarshaler.
@@ -134,165 +143,75 @@ type PHYPayload struct {
 	MIC        MIC     `json:"mic"`
 }
 
-// calculateMIC calculates and returns the MIC.
-func (p PHYPayload) calculateMIC(key AES128Key) ([]byte, error) {
-	if p.MACPayload == nil {
-		return []byte{}, errors.New("lorawan: MACPayload should not be empty")
-	}
-
-	macPayload, ok := p.MACPayload.(*MACPayload)
-	if !ok {
-		return []byte{}, errors.New("lorawan: MACPayload should be of type *MACPayload")
-	}
-
-	var b []byte
-	var err error
-	var micBytes []byte
-
-	b, err = p.MHDR.MarshalBinary()
-	if err != nil {
-		return nil, err
-	}
-	micBytes = append(micBytes, b...)
-
-	b, err = macPayload.MarshalBinary()
-	if err != nil {
-		return nil, err
-	}
-	micBytes = append(micBytes, b...)
-
-	b0 := make([]byte, 16)
-	b0[0] = 0x49
-	if !p.isUplink() {
-		b0[5] = 1
-	}
-	b, err = macPayload.FHDR.DevAddr.MarshalBinary()
-	if err != nil {
-		return nil, err
-	}
-	copy(b0[6:10], b)
-	binary.LittleEndian.PutUint32(b0[10:14], macPayload.FHDR.FCnt)
-	b0[15] = byte(len(micBytes))
-
-	hash, err := cmac.New(key[:])
-	if err != nil {
-		return nil, err
-	}
-
-	if _, err = hash.Write(b0); err != nil {
-		return nil, err
-	}
-	if _, err = hash.Write(micBytes); err != nil {
-		return nil, err
-	}
-
-	hb := hash.Sum([]byte{})
-	if len(hb) < 4 {
-		return nil, errors.New("lorawan: the hash returned less than 4 bytes")
-	}
-	return hb[0:4], nil
-}
-
-// calculateMACPayloadMIC generates and returns the MIC over the MHDR + the
-// binary representation of the MACPayload field.
-func (p PHYPayload) calculateMACPayloadMIC(key AES128Key) ([]byte, error) {
-	if p.MACPayload == nil {
-		return nil, errors.New("lorawan: MACPayload must not be empty")
-	}
-
-	var micBytes []byte
-
-	b, err := p.MHDR.MarshalBinary()
-	if err != nil {
-		return nil, err
-	}
-	micBytes = append(micBytes, b...)
-
-	b, err = p.MACPayload.MarshalBinary()
-	if err != nil {
-		return nil, err
-	}
-	micBytes = append(micBytes, b...)
-
-	hash, err := cmac.New(key[:])
-	if err != nil {
-		return nil, err
-	}
-	if _, err = hash.Write(micBytes); err != nil {
-		return nil, err
-	}
-	hb := hash.Sum([]byte{})
-	if len(hb) < 4 {
-		return nil, errors.New("lorawan: the hash returned less than 4 bytes")
-	}
-	return hb[0:4], nil
-}
-
-// SetMIC calculates and sets the MIC field.
-func (p *PHYPayload) SetMIC(key AES128Key) error {
-	var mic []byte
-	var err error
-
-	switch p.MACPayload.(type) {
-	case *JoinRequestPayload:
-		mic, err = p.calculateMACPayloadMIC(key)
-	case *JoinAcceptPayload:
-		mic, err = p.calculateMACPayloadMIC(key)
-	case *RejoinRequestType02Payload:
-		mic, err = p.calculateMACPayloadMIC(key)
-	case *RejoinRequestType1Payload:
-		mic, err = p.calculateMACPayloadMIC(key)
-	default:
-		mic, err = p.calculateMIC(key)
-	}
-
+// SetUplinkDataMIC calculates and sets the MIC field for uplink data frames.
+// The confirmed frame-counter, TX data-rate TX channel index and SNwkSIntKey
+// are only required for LoRaWAN 1.1 and can be left blank otherwise.
+func (p *PHYPayload) SetUplinkDataMIC(macVersion MACVersion, confFCnt uint32, txDR, txCh uint8, fNwkSIntKey, sNwkSIntKey AES128Key) error {
+	mic, err := p.calculateUplinkDataMIC(macVersion, confFCnt, txDR, txCh, fNwkSIntKey, sNwkSIntKey)
 	if err != nil {
 		return err
 	}
-	if len(mic) != 4 {
-		return errors.New("lorawan: a MIC of 4 bytes is expected")
-	}
-	for i, v := range mic {
-		p.MIC[i] = v
-	}
+	p.MIC = mic
 	return nil
 }
 
-// ValidateMIC returns if the MIC is valid.
-// When using 32 bit frame counters, only the least-signification 16 bits are
-// sent / received. In order to validate the MIC, the receiver needs to set
-// the FCnt to the full 32 bit value (based on the observation of the traffic).
-// See section '4.3.1.5 Frame counter (FCnt)' of the LoRaWAN 1.0 specification
-// for more details.
-func (p PHYPayload) ValidateMIC(key AES128Key) (bool, error) {
-	var mic []byte
-	var err error
-
-	switch p.MACPayload.(type) {
-	case *JoinRequestPayload:
-		mic, err = p.calculateMACPayloadMIC(key)
-	case *JoinAcceptPayload:
-		mic, err = p.calculateMACPayloadMIC(key)
-	case *RejoinRequestType02Payload:
-		mic, err = p.calculateMACPayloadMIC(key)
-	case *RejoinRequestType1Payload:
-		mic, err = p.calculateMACPayloadMIC(key)
-	default:
-		mic, err = p.calculateMIC(key)
-	}
-
+// ValidateUplinkDataMIC validates the MIC of an uplink data frame.
+// In order to validate the MIC, the FCnt value must first be set to the
+// full 32 bit frame-counter value, as only the 16 least-significant bits
+// are transmitted.
+// The confirmed frame-counter, TX data-rate TX channel index and SNwkSIntKey
+// are only required for LoRaWAN 1.1 and can be left blank otherwise.
+func (p PHYPayload) ValidateUplinkDataMIC(macVersion MACVersion, confFCnt uint32, txDR, txCh uint8, fNwkSIntKey, sNwkSIntKey AES128Key) (bool, error) {
+	mic, err := p.calculateUplinkDataMIC(macVersion, confFCnt, txDR, txCh, fNwkSIntKey, sNwkSIntKey)
 	if err != nil {
 		return false, err
 	}
-	if len(mic) != 4 {
-		return false, errors.New("lorawan: a MIC of 4 bytes is expected")
+	return p.MIC == mic, nil
+}
+
+// SetDownlinkDataMIC calculates and sets the MIC field for downlink data frames.
+// The confirmed frame-counter and is only required for LoRaWAN 1.1 and can be
+// left blank otherwise.
+func (p *PHYPayload) SetDownlinkDataMIC(macVersion MACVersion, confFCnt uint32, sNwkSIntKey AES128Key) error {
+	mic, err := p.calculateDownlinkDataMIC(macVersion, confFCnt, sNwkSIntKey)
+	if err != nil {
+		return err
 	}
-	for i, v := range mic {
-		if p.MIC[i] != v {
-			return false, nil
-		}
+	p.MIC = mic
+	return nil
+}
+
+// ValidateDownlinkDataMIC validates the MIC of a downlink data frame.
+// In order to validate the MIC, the FCnt value must first be set to the
+// full 32 bit frame-counter value, as only the 16 least-significant bits
+// are transmitted.
+// The confirmed frame-counter and is only required for LoRaWAN 1.1 and can be
+// left blank otherwise.
+func (p PHYPayload) ValidateDownlinkDataMIC(macVersion MACVersion, confFCnt uint32, sNwkSIntKey AES128Key) (bool, error) {
+	mic, err := p.calculateDownlinkDataMIC(macVersion, confFCnt, sNwkSIntKey)
+	if err != nil {
+		return false, err
 	}
-	return true, nil
+	return p.MIC == mic, nil
+}
+
+// SetMIC calculates and sets the MIC field for non-data frames.
+func (p *PHYPayload) SetMIC(key AES128Key) error {
+	mic, err := p.calculateMACPayloadMIC(key)
+	if err != nil {
+		return err
+	}
+	p.MIC = mic
+	return nil
+}
+
+// ValidateMIC validates the MIC for non-data frames.
+func (p PHYPayload) ValidateMIC(key AES128Key) (bool, error) {
+	mic, err := p.calculateMACPayloadMIC(key)
+	if err != nil {
+		return false, err
+	}
+	return p.MIC == mic, nil
 }
 
 // EncryptJoinAcceptPayload encrypts the join-accept payload with the given
@@ -596,6 +515,206 @@ func (p PHYPayload) isUplink() bool {
 	default:
 		return false
 	}
+}
+
+// calculateMACPayloadMIC generates and returns the MIC over the MHDR + the
+// binary representation of the MACPayload field.
+func (p PHYPayload) calculateMACPayloadMIC(key AES128Key) (MIC, error) {
+	var mic MIC
+
+	if p.MACPayload == nil {
+		return mic, errors.New("lorawan: MACPayload must not be empty")
+	}
+
+	var micBytes []byte
+
+	b, err := p.MHDR.MarshalBinary()
+	if err != nil {
+		return mic, err
+	}
+	micBytes = append(micBytes, b...)
+
+	b, err = p.MACPayload.MarshalBinary()
+	if err != nil {
+		return mic, err
+	}
+	micBytes = append(micBytes, b...)
+
+	hash, err := cmac.New(key[:])
+	if err != nil {
+		return mic, err
+	}
+	if _, err = hash.Write(micBytes); err != nil {
+		return mic, err
+	}
+	hb := hash.Sum([]byte{})
+	if len(hb) < 4 {
+		return mic, errors.New("lorawan: the hash returned less than 4 bytes")
+	}
+
+	copy(mic[:], hb[0:4])
+	return mic, nil
+}
+
+func (p *PHYPayload) calculateUplinkDataMIC(macVersion MACVersion, confFCnt uint32, txDR, txCh uint8, fNwkSIntKey, sNwkSIntKey AES128Key) (MIC, error) {
+	var mic MIC
+
+	if p.MACPayload == nil {
+		return mic, errors.New("lorawan: MACPayload must not be nil")
+	}
+
+	macPL, ok := p.MACPayload.(*MACPayload)
+	if !ok {
+		return mic, errors.New("lorawan: MACPayload field must be of type *MACPayload")
+	}
+
+	confFCnt = confFCnt % (1 << 16)
+
+	var micBytes []byte
+	b, err := p.MHDR.MarshalBinary()
+	if err != nil {
+		return mic, err
+	}
+	micBytes = append(micBytes, b...)
+
+	b, err = macPL.MarshalBinary()
+	if err != nil {
+		return mic, err
+	}
+	micBytes = append(micBytes, b...)
+
+	b0 := make([]byte, 16)
+	b1 := make([]byte, 16)
+
+	b0[0] = 0x49
+	b1[0] = 0x49
+
+	// devaddr
+	b, err = macPL.FHDR.DevAddr.MarshalBinary()
+	if err != nil {
+		return mic, err
+	}
+	copy(b0[6:10], b)
+	copy(b1[6:10], b)
+
+	// fcntup
+	binary.LittleEndian.PutUint32(b0[10:14], macPL.FHDR.FCnt)
+	binary.LittleEndian.PutUint32(b1[10:14], macPL.FHDR.FCnt)
+
+	// msg len
+	b0[15] = byte(len(micBytes))
+	b1[15] = byte(len(micBytes))
+
+	// remaining b1 fields
+	binary.LittleEndian.PutUint16(b1[1:3], uint16(confFCnt))
+	b1[3] = txDR
+	b1[4] = txCh
+
+	hash, err := cmac.New(sNwkSIntKey[:])
+	if err != nil {
+		return mic, err
+	}
+	if _, err = hash.Write(b1); err != nil {
+		return mic, err
+	}
+	if _, err = hash.Write(micBytes); err != nil {
+		return mic, err
+	}
+
+	cmacS := hash.Sum([]byte{})
+	if len(cmacS) < 4 {
+		return mic, errors.New("lorawan: the hash returned less than 4 bytes")
+	}
+
+	hash, err = cmac.New(fNwkSIntKey[:])
+	if err != nil {
+		return mic, err
+	}
+	if _, err = hash.Write(b0); err != nil {
+		return mic, err
+	}
+	if _, err = hash.Write(micBytes); err != nil {
+		return mic, err
+	}
+
+	cmacF := hash.Sum([]byte{})
+	if len(cmacF) < 2 {
+		return mic, errors.New("lorawan: the hash returned less than 2 bytes")
+	}
+
+	if macVersion == LoRaWAN1_0 {
+		copy(mic[:], cmacF[0:4])
+	} else {
+		copy(mic[0:2], cmacS[0:2])
+		copy(mic[2:4], cmacF[0:2])
+	}
+
+	return mic, nil
+}
+
+func (p *PHYPayload) calculateDownlinkDataMIC(macVersion MACVersion, confFCnt uint32, sNwkSIntKey AES128Key) (MIC, error) {
+	var mic MIC
+
+	if p.MACPayload == nil {
+		return mic, errors.New("lorawan: MACPayload must not be nil")
+	}
+
+	macPL, ok := p.MACPayload.(*MACPayload)
+	if !ok {
+		return mic, errors.New("lorawan: MACPayload field must be of type *MACPayload")
+	}
+
+	// The confirmed FCnt is only used in case of LoRaWAN 1.1
+	if macVersion != LoRaWAN1_1 {
+		confFCnt = 0
+	}
+	confFCnt = confFCnt % (1 << 16)
+
+	var micBytes []byte
+	b, err := p.MHDR.MarshalBinary()
+	if err != nil {
+		return mic, err
+	}
+	micBytes = append(micBytes, b...)
+
+	b, err = macPL.MarshalBinary()
+	if err != nil {
+		return mic, err
+	}
+	micBytes = append(micBytes, b...)
+
+	b0 := make([]byte, 16)
+	b0[0] = 0x49
+	binary.LittleEndian.PutUint16(b0[1:3], uint16(confFCnt))
+	b0[5] = 0x01
+
+	b, err = macPL.FHDR.DevAddr.MarshalBinary()
+	if err != nil {
+		return mic, err
+	}
+	copy(b0[6:10], b)
+	binary.LittleEndian.PutUint32(b0[10:14], macPL.FHDR.FCnt)
+	b0[15] = byte(len(micBytes))
+
+	hash, err := cmac.New(sNwkSIntKey[:])
+	if err != nil {
+		return mic, err
+	}
+
+	if _, err = hash.Write(b0); err != nil {
+		return mic, err
+	}
+	if _, err = hash.Write(micBytes); err != nil {
+		return mic, err
+	}
+
+	hb := hash.Sum([]byte{})
+	if len(hb) < 4 {
+		return mic, errors.New("lorawan: the hash returned less than 4 bytes")
+	}
+
+	copy(mic[:], hb[0:4])
+	return mic, nil
 }
 
 // EncryptFRMPayload encrypts the FRMPayload (slice of bytes).

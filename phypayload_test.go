@@ -79,10 +79,10 @@ func TestMHDR(t *testing.T) {
 	})
 }
 
-func TestPHYPayloadMACPayload(t *testing.T) {
-	Convey("Given a set of test", t, func() {
+func TestPHYPayloadMACPayloadLoRaWAN10(t *testing.T) {
+	Convey("Given a set of test for LoRaWAN 1.0", t, func() {
 		var fPort1 uint8 = 1
-		var fPort0 uint8 = 0
+		var fPort0 uint8
 
 		mac1 := MACCommand{
 			CID:     LinkCheckReq,
@@ -98,12 +98,11 @@ func TestPHYPayloadMACPayload(t *testing.T) {
 		}
 
 		testTable := []struct {
-			Name         string
-			PHYPayload   PHYPayload
-			NwkSEncKey   AES128Key
-			AppSKey      AES128Key
-			Bytes        []byte
-			EncryptFOpts bool
+			Name       string
+			PHYPayload PHYPayload
+			NwkSEncKey AES128Key
+			AppSKey    AES128Key
+			Bytes      []byte
 		}{
 			{
 				Name: "FRMPayload data",
@@ -158,63 +157,6 @@ func TestPHYPayloadMACPayload(t *testing.T) {
 				Bytes:      []byte{64, 4, 3, 2, 1, 3, 0, 0, 2, 3, 5, 1, 106, 55, 152, 245, 182, 77, 192, 57},
 			},
 			{
-				Name: "Mac-commands in FOpts (encrypted, using NFCntDown)",
-				PHYPayload: PHYPayload{
-					MHDR: MHDR{
-						MType: UnconfirmedDataDown,
-						Major: LoRaWANR1,
-					},
-					MACPayload: &MACPayload{
-						FHDR: FHDR{
-							DevAddr: DevAddr{1, 2, 3, 4},
-							FOpts: []Payload{
-								&MACCommand{
-									CID: LinkCheckAns,
-									Payload: &LinkCheckAnsPayload{
-										Margin: 7,
-										GwCnt:  1,
-									},
-								},
-							},
-						},
-					},
-					MIC: MIC{231, 233, 149, 137},
-				},
-				NwkSEncKey:   AES128Key{2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2},
-				AppSKey:      AES128Key{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
-				Bytes:        []byte{96, 4, 3, 2, 1, 3, 0, 0, 48, 44, 207, 231, 233, 149, 137},
-				EncryptFOpts: true,
-			},
-			{
-				Name: "Mac-commands in FOpts (encrypted, using AFCntDown encryption flag)",
-				PHYPayload: PHYPayload{
-					MHDR: MHDR{
-						MType: UnconfirmedDataDown,
-						Major: LoRaWANR1,
-					},
-					MACPayload: &MACPayload{
-						FHDR: FHDR{
-							DevAddr: DevAddr{1, 2, 3, 4},
-							FOpts: []Payload{
-								&MACCommand{
-									CID: LinkCheckAns,
-									Payload: &LinkCheckAnsPayload{
-										Margin: 7,
-										GwCnt:  1,
-									},
-								},
-							},
-						},
-						FPort: &fPort1,
-					},
-					MIC: MIC{17, 214, 94, 154},
-				},
-				NwkSEncKey:   AES128Key{2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2},
-				AppSKey:      AES128Key{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
-				Bytes:        []byte{96, 4, 3, 2, 1, 3, 0, 0, 72, 137, 18, 1, 17, 214, 94, 154},
-				EncryptFOpts: true,
-			},
-			{
 				Name: "Mac-commands in FRMPayload",
 				PHYPayload: PHYPayload{
 					MHDR: MHDR{
@@ -243,8 +185,219 @@ func TestPHYPayloadMACPayload(t *testing.T) {
 			Convey(fmt.Sprintf("Testing: %s [%d]", test.Name, i), func() {
 				var phy PHYPayload
 				So(phy.UnmarshalBinary(test.Bytes), ShouldBeNil)
-				ok, err := phy.ValidateMIC(test.NwkSEncKey)
+
+				var ok bool
+				var err error
+
+				switch phy.MHDR.MType {
+				case UnconfirmedDataUp, ConfirmedDataUp:
+					ok, err = phy.ValidateUplinkDataMIC(LoRaWAN1_0, 0, 0, 0, test.NwkSEncKey, AES128Key{})
+				case UnconfirmedDataDown, ConfirmedDataDown:
+					ok, err = phy.ValidateDownlinkDataMIC(LoRaWAN1_0, 0, test.NwkSEncKey)
+				default:
+					t.Fatalf("unexpected MType %s", phy.MHDR.MType)
+				}
 				So(err, ShouldBeNil)
+				So(ok, ShouldBeTrue)
+
+				So(phy.DecodeFOptsToMACCommands(), ShouldBeNil)
+				So(phy.DecryptFRMPayload(test.AppSKey), ShouldBeNil)
+				if macPL, ok := phy.MACPayload.(*MACPayload); ok {
+					macPL.FHDR.FCtrl.fOptsLen = 0
+				}
+				So(phy, ShouldResemble, test.PHYPayload)
+
+				So(test.PHYPayload.EncryptFRMPayload(test.AppSKey), ShouldBeNil)
+
+				switch test.PHYPayload.MHDR.MType {
+				case UnconfirmedDataUp, ConfirmedDataUp:
+					err = test.PHYPayload.SetUplinkDataMIC(LoRaWAN1_0, 0, 0, 0, test.NwkSEncKey, AES128Key{})
+				case UnconfirmedDataDown, ConfirmedDataDown:
+					err = test.PHYPayload.SetDownlinkDataMIC(LoRaWAN1_0, 0, test.NwkSEncKey)
+				default:
+					t.Fatalf("unexpected MType %s", test.PHYPayload.MHDR.MType)
+				}
+				So(err, ShouldBeNil)
+
+				b, err := test.PHYPayload.MarshalBinary()
+				So(err, ShouldBeNil)
+				So(b, ShouldResemble, test.Bytes)
+			})
+		}
+	})
+}
+
+func TestPHYPayloadMACPayloadLoRaWAN11(t *testing.T) {
+	Convey("Given a set of tests for LoRaWAN 1.1", t, func() {
+		var fPort1 uint8 = 1
+		var fPort0 uint8
+
+		mac1 := MACCommand{
+			CID:     LinkCheckReq,
+			Payload: nil,
+		}
+		mac2 := MACCommand{
+			CID: LinkADRAns,
+			Payload: &LinkADRAnsPayload{
+				ChannelMaskACK: true,
+				DataRateACK:    false,
+				PowerACK:       true,
+			},
+		}
+
+		testTable := []struct {
+			Name         string
+			PHYPayload   PHYPayload
+			SNwkSIntKey  AES128Key
+			FNwkSIntKey  AES128Key
+			NwkSEncKey   AES128Key
+			AppSKey      AES128Key
+			Bytes        []byte
+			EncryptFOpts bool
+		}{
+			{
+				Name: "FRMPayload data",
+				PHYPayload: PHYPayload{
+					MHDR: MHDR{
+						MType: UnconfirmedDataUp,
+						Major: LoRaWANR1,
+					},
+					MACPayload: &MACPayload{
+						FHDR: FHDR{
+							DevAddr: DevAddr{1, 2, 3, 4},
+							FCtrl: FCtrl{
+								ADR: true,
+							},
+							FCnt: 1,
+						},
+						FPort: &fPort1,
+						FRMPayload: []Payload{
+							&DataPayload{Bytes: []byte("hello")},
+						},
+					},
+					MIC: MIC{17, 213, 54, 106},
+				},
+				SNwkSIntKey: AES128Key{2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2},
+				FNwkSIntKey: AES128Key{2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3},
+				NwkSEncKey:  AES128Key{2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 4},
+				AppSKey:     AES128Key{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
+				Bytes:       []byte{64, 4, 3, 2, 1, 128, 1, 0, 1, 166, 148, 100, 38, 21, 17, 213, 54, 106},
+			},
+			{
+				Name: "Mac-commands in FOpts (encrypted, using NFCntDown)",
+				PHYPayload: PHYPayload{
+					MHDR: MHDR{
+						MType: UnconfirmedDataDown,
+						Major: LoRaWANR1,
+					},
+					MACPayload: &MACPayload{
+						FHDR: FHDR{
+							DevAddr: DevAddr{1, 2, 3, 4},
+							FOpts: []Payload{
+								&MACCommand{
+									CID: LinkCheckAns,
+									Payload: &LinkCheckAnsPayload{
+										Margin: 7,
+										GwCnt:  1,
+									},
+								},
+							},
+						},
+					},
+					MIC: MIC{13, 251, 57, 80},
+				},
+				SNwkSIntKey:  AES128Key{2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2},
+				FNwkSIntKey:  AES128Key{2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3},
+				NwkSEncKey:   AES128Key{2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 4},
+				Bytes:        []byte{96, 4, 3, 2, 1, 3, 0, 0, 217, 145, 221, 13, 251, 57, 80},
+				EncryptFOpts: true,
+			},
+			{
+				Name: "Mac-commands in FOpts (encrypted, using AFCntDown encryption flag)",
+				PHYPayload: PHYPayload{
+					MHDR: MHDR{
+						MType: UnconfirmedDataDown,
+						Major: LoRaWANR1,
+					},
+					MACPayload: &MACPayload{
+						FHDR: FHDR{
+							DevAddr: DevAddr{1, 2, 3, 4},
+							FOpts: []Payload{
+								&MACCommand{
+									CID: LinkCheckAns,
+									Payload: &LinkCheckAnsPayload{
+										Margin: 7,
+										GwCnt:  1,
+									},
+								},
+							},
+						},
+						FPort: &fPort1,
+					},
+					MIC: MIC{120, 221, 106, 108},
+				},
+				SNwkSIntKey: AES128Key{2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2},
+				FNwkSIntKey: AES128Key{2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3},
+				NwkSEncKey:  AES128Key{2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 4},
+				Bytes:       []byte{96, 4, 3, 2, 1, 3, 0, 0, 2, 7, 1, 1, 120, 221, 106, 108},
+			},
+			{
+				Name: "Mac-commands in FRMPayload",
+				PHYPayload: PHYPayload{
+					MHDR: MHDR{
+						MType: UnconfirmedDataUp,
+						Major: LoRaWANR1,
+					},
+					MACPayload: &MACPayload{
+						FPort: &fPort0,
+						FHDR: FHDR{
+							DevAddr: DevAddr{1, 2, 3, 4},
+						},
+						FRMPayload: []Payload{
+							&mac1,
+							&mac2,
+						},
+					},
+					MIC: MIC{34, 54, 27, 215},
+				},
+				SNwkSIntKey: AES128Key{2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2},
+				FNwkSIntKey: AES128Key{2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3},
+				NwkSEncKey:  AES128Key{2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 4},
+				AppSKey:     AES128Key{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
+				Bytes:       []byte{64, 4, 3, 2, 1, 0, 0, 0, 0, 105, 54, 158, 34, 54, 27, 215},
+			},
+		}
+
+		for i, test := range testTable {
+			Convey(fmt.Sprintf("Testing: %s [%d]", test.Name, i), func() {
+				var phy PHYPayload
+				So(phy.UnmarshalBinary(test.Bytes), ShouldBeNil)
+
+				var ok bool
+				var err error
+
+				switch phy.MHDR.MType {
+				case UnconfirmedDataUp, ConfirmedDataUp:
+					ok, err = phy.ValidateUplinkDataMIC(LoRaWAN1_1, 1, 2, 3, test.FNwkSIntKey, test.SNwkSIntKey)
+				case UnconfirmedDataDown, ConfirmedDataDown:
+					ok, err = phy.ValidateDownlinkDataMIC(LoRaWAN1_1, 1, test.SNwkSIntKey)
+				default:
+					t.Fatalf("unexpected MType %s", phy.MHDR.MType)
+				}
+				So(err, ShouldBeNil)
+				if !ok {
+					var mic MIC
+					switch phy.MHDR.MType {
+					case UnconfirmedDataUp, ConfirmedDataUp:
+						mic, err = phy.calculateUplinkDataMIC(LoRaWAN1_1, 1, 2, 3, test.FNwkSIntKey, test.SNwkSIntKey)
+					case UnconfirmedDataDown, ConfirmedDataDown:
+						mic, err = phy.calculateDownlinkDataMIC(LoRaWAN1_1, 1, test.SNwkSIntKey)
+					default:
+						t.Fatalf("unexpected MType %s", phy.MHDR.MType)
+					}
+
+					fmt.Printf("expected mic: %s (%v)\n", mic, mic[:])
+				}
 				So(ok, ShouldBeTrue)
 
 				if test.EncryptFOpts {
@@ -262,7 +415,16 @@ func TestPHYPayloadMACPayload(t *testing.T) {
 				if test.EncryptFOpts {
 					So(test.PHYPayload.EncryptFOpts(test.NwkSEncKey), ShouldBeNil)
 				}
-				So(test.PHYPayload.SetMIC(test.NwkSEncKey), ShouldBeNil)
+
+				switch test.PHYPayload.MHDR.MType {
+				case UnconfirmedDataUp, ConfirmedDataUp:
+					err = test.PHYPayload.SetUplinkDataMIC(LoRaWAN1_1, 1, 2, 3, test.FNwkSIntKey, test.SNwkSIntKey)
+				case UnconfirmedDataDown, ConfirmedDataDown:
+					err = test.PHYPayload.SetDownlinkDataMIC(LoRaWAN1_1, 1, test.SNwkSIntKey)
+				default:
+					t.Fatalf("unexpected MType %s", test.PHYPayload.MHDR.MType)
+				}
+				So(err, ShouldBeNil)
 
 				b, err := test.PHYPayload.MarshalBinary()
 				So(err, ShouldBeNil)
@@ -491,7 +653,7 @@ func TestPHYPayloadRejoinRequest1(t *testing.T) {
 	})
 }
 
-func ExamplePHYPayload_encode() {
+func ExamplePHYPayload_lorawan10_encode() {
 	nwkSKey := [16]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16}
 	appSKey := [16]byte{16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1}
 	fPort := uint8(10)
@@ -521,7 +683,7 @@ func ExamplePHYPayload_encode() {
 		panic(err)
 	}
 
-	if err := phy.SetMIC(nwkSKey); err != nil {
+	if err := phy.SetUplinkDataMIC(LoRaWAN1_0, 0, 0, 0, nwkSKey, AES128Key{}); err != nil {
 		panic(err)
 	}
 
@@ -550,7 +712,7 @@ func ExamplePHYPayload_encode() {
 	// {"mhdr":{"mType":"ConfirmedDataUp","major":"LoRaWANR1"},"macPayload":{"fhdr":{"devAddr":"01020304","fCtrl":{"adr":false,"adrAckReq":false,"ack":false,"fPending":false,"classB":false},"fCnt":0,"fOpts":[]},"fPort":10,"frmPayload":[{"bytes":"4mTU9w=="}]},"mic":"b56a0e75"}
 }
 
-func ExamplePHYPayload_decode() {
+func ExamplePHYPayload_lorawan10_decode() {
 	nwkSKey := [16]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16}
 	appSKey := [16]byte{16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1}
 
@@ -560,7 +722,7 @@ func ExamplePHYPayload_decode() {
 		panic(err)
 	}
 
-	ok, err := phy.ValidateMIC(nwkSKey)
+	ok, err := phy.ValidateUplinkDataMIC(LoRaWAN1_0, 0, 0, 0, nwkSKey, AES128Key{})
 	if err != nil {
 		panic(err)
 	}
@@ -594,8 +756,9 @@ func ExamplePHYPayload_decode() {
 	// [1 2 3 4]
 }
 
-func ExamplePHYPayload_encrypted_fopts_encode() {
-	nwkSKey := [16]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16}
+func ExamplePHYPayload_lorawan11_encrypted_fopts_encode() {
+	sNwkSIntKey := [16]byte{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}
+	nwkSEncKey := [16]byte{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2}
 	appSKey := [16]byte{16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1}
 	var fport1 uint8 = 1
 
@@ -624,7 +787,7 @@ func ExamplePHYPayload_encrypted_fopts_encode() {
 		},
 	}
 
-	if err := phy.EncryptFOpts(nwkSKey); err != nil {
+	if err := phy.EncryptFOpts(nwkSEncKey); err != nil {
 		panic(err)
 	}
 
@@ -632,7 +795,7 @@ func ExamplePHYPayload_encrypted_fopts_encode() {
 		panic(err)
 	}
 
-	if err := phy.SetMIC(nwkSKey); err != nil {
+	if err := phy.SetDownlinkDataMIC(LoRaWAN1_1, 0, sNwkSIntKey); err != nil {
 		panic(err)
 	}
 
@@ -656,21 +819,22 @@ func ExamplePHYPayload_encrypted_fopts_encode() {
 	fmt.Println(string(phyJSON))
 
 	// Output:
-	// YAQDAgEDAADLRAMB8LRo3UrY6k4=
-	// [96 4 3 2 1 3 0 0 203 68 3 1 240 180 104 221 74 216 234 78]
-	// {"mhdr":{"mType":"UnconfirmedDataDown","major":"LoRaWANR1"},"macPayload":{"fhdr":{"devAddr":"01020304","fCtrl":{"adr":false,"adrAckReq":false,"ack":false,"fPending":false,"classB":false},"fCnt":0,"fOpts":[{"bytes":"y0QD"}]},"fPort":1,"frmPayload":[{"bytes":"8LRo3Q=="}]},"mic":"4ad8ea4e"}
+	// YAQDAgEDAAAjB3kB8LRo3RNbLLU=
+	// [96 4 3 2 1 3 0 0 35 7 121 1 240 180 104 221 19 91 44 181]
+	// {"mhdr":{"mType":"UnconfirmedDataDown","major":"LoRaWANR1"},"macPayload":{"fhdr":{"devAddr":"01020304","fCtrl":{"adr":false,"adrAckReq":false,"ack":false,"fPending":false,"classB":false},"fCnt":0,"fOpts":[{"bytes":"Iwd5"}]},"fPort":1,"frmPayload":[{"bytes":"8LRo3Q=="}]},"mic":"135b2cb5"}
 }
 
-func ExamplePHYPayload_encrypted_fopts_decode() {
-	nwkSKey := [16]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16}
+func ExamplePHYPayload_lorawan11_encrypted_fopts_decode() {
+	sNwkSIntKey := [16]byte{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}
+	nwkSEncKey := [16]byte{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2}
 	appSKey := [16]byte{16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1}
 
 	var phy PHYPayload
-	if err := phy.UnmarshalText([]byte("YAQDAgEDAADLRAMB8LRo3UrY6k4=")); err != nil {
+	if err := phy.UnmarshalText([]byte("YAQDAgEDAAAjB3kB8LRo3RNbLLU=")); err != nil {
 		panic(err)
 	}
 
-	ok, err := phy.ValidateMIC(nwkSKey)
+	ok, err := phy.ValidateDownlinkDataMIC(LoRaWAN1_1, 0, sNwkSIntKey)
 	if err != nil {
 		panic(err)
 	}
@@ -678,7 +842,7 @@ func ExamplePHYPayload_encrypted_fopts_decode() {
 		panic("invalid mic")
 	}
 
-	if err := phy.DecryptFOpts(nwkSKey); err != nil {
+	if err := phy.DecryptFOpts(nwkSEncKey); err != nil {
 		panic(err)
 	}
 
@@ -694,7 +858,7 @@ func ExamplePHYPayload_encrypted_fopts_decode() {
 	fmt.Println(string(phyJSON))
 
 	// Output:
-	// {"mhdr":{"mType":"UnconfirmedDataDown","major":"LoRaWANR1"},"macPayload":{"fhdr":{"devAddr":"01020304","fCtrl":{"adr":false,"adrAckReq":false,"ack":false,"fPending":false,"classB":false},"fCnt":0,"fOpts":[{"cid":"LinkCheckReq","payload":{"margin":7,"gwCnt":1}}]},"fPort":1,"frmPayload":[{"bytes":"AQIDBA=="}]},"mic":"4ad8ea4e"}
+	// {"mhdr":{"mType":"UnconfirmedDataDown","major":"LoRaWANR1"},"macPayload":{"fhdr":{"devAddr":"01020304","fCtrl":{"adr":false,"adrAckReq":false,"ack":false,"fPending":false,"classB":false},"fCnt":0,"fOpts":[{"cid":"LinkCheckReq","payload":{"margin":7,"gwCnt":1}}]},"fPort":1,"frmPayload":[{"bytes":"AQIDBA=="}]},"mic":"135b2cb5"}
 }
 
 func ExamplePHYPayload_proprietary_encode() {
