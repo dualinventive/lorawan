@@ -413,21 +413,28 @@ func (p *DutyCycleReqPayload) UnmarshalBinary(data []byte) error {
 
 // DLSettings represents the DLSettings fields (downlink settings).
 type DLSettings struct {
+	OptNeg      bool  `json:"optNeg"`
 	RX2DataRate uint8 `json:"rx2DataRate"`
 	RX1DROffset uint8 `json:"rx1DROffset"`
 }
 
 // MarshalBinary marshals the object in binary form.
 func (s DLSettings) MarshalBinary() ([]byte, error) {
-	b := make([]byte, 0, 1)
 	if s.RX2DataRate > 15 {
-		return b, errors.New("lorawan: max value of RX2DataRate is 15")
+		return nil, errors.New("lorawan: max value of RX2DataRate is 15")
 	}
 	if s.RX1DROffset > 7 {
-		return b, errors.New("lorawan: max value of RX1DROffset is 7")
+		return nil, errors.New("lorawan: max value of RX1DROffset is 7")
 	}
-	b = append(b, s.RX2DataRate^(s.RX1DROffset<<4))
-	return b, nil
+
+	b := s.RX2DataRate
+	b |= s.RX1DROffset << 4
+
+	if s.OptNeg {
+		b |= 1 << 7
+	}
+
+	return []byte{b}, nil
 }
 
 // MarshalText implements encoding.TextMarshaler.
@@ -445,8 +452,11 @@ func (s *DLSettings) UnmarshalBinary(data []byte) error {
 	if len(data) != 1 {
 		return errors.New("lorawan: 1 byte of data is expected")
 	}
-	s.RX2DataRate = data[0] & ((1 << 3) ^ (1 << 2) ^ (1 << 1) ^ (1 << 0))
-	s.RX1DROffset = (data[0] & ((1 << 6) ^ (1 << 5) ^ (1 << 4))) >> 4
+
+	s.OptNeg = (data[0] & (1 << 7)) != 0
+	s.RX2DataRate = data[0] & ((1 << 3) | (1 << 2) | (1 << 1) | 1)
+	s.RX1DROffset = (data[0] & ((1 << 6) | (1 << 5) | (1 << 4))) >> 4
+
 	return nil
 }
 

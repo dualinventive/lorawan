@@ -1,5 +1,6 @@
 //go:generate stringer -type=MType
 //go:generate stringer -type=Major
+//go:generate stringer -type=JoinType
 
 package lorawan
 
@@ -195,9 +196,9 @@ func (p PHYPayload) ValidateDownlinkDataMIC(macVersion MACVersion, confFCnt uint
 	return p.MIC == mic, nil
 }
 
-// SetMIC calculates and sets the MIC field for non-data frames.
-func (p *PHYPayload) SetMIC(key AES128Key) error {
-	mic, err := p.calculateMACPayloadMIC(key)
+// SetUplinkJoinMIC calculates and sets the MIC field for uplink join requests.
+func (p *PHYPayload) SetUplinkJoinMIC(key AES128Key) error {
+	mic, err := p.calculateUplinkJoinMAC(key)
 	if err != nil {
 		return err
 	}
@@ -205,12 +206,32 @@ func (p *PHYPayload) SetMIC(key AES128Key) error {
 	return nil
 }
 
-// ValidateMIC validates the MIC for non-data frames.
-func (p PHYPayload) ValidateMIC(key AES128Key) (bool, error) {
-	mic, err := p.calculateMACPayloadMIC(key)
+// ValidateUplinkJoinMIC validates the MIC of an uplink join request.
+func (p PHYPayload) ValidateUplinkJoinMIC(key AES128Key) (bool, error) {
+	mic, err := p.calculateUplinkJoinMAC(key)
 	if err != nil {
 		return false, err
 	}
+	return p.MIC == mic, nil
+}
+
+// SetDownlinkJoinMAC calculates and sets the MIC field for downlink join requests.
+func (p *PHYPayload) SetDownlinkJoinMAC(joinReqType JoinType, joinEUI EUI64, devNonce DevNonce, key AES128Key) error {
+	mic, err := p.calculateDownlinkJoinMAC(joinReqType, joinEUI, devNonce, key)
+	if err != nil {
+		return err
+	}
+	p.MIC = mic
+	return nil
+}
+
+// ValidateDownlinkJoinMAC validates the MIC of a downlink join request.
+func (p PHYPayload) ValidateDownlinkJoinMAC(joinReqType JoinType, joinEUI EUI64, devNonce DevNonce, key AES128Key) (bool, error) {
+	mic, err := p.calculateDownlinkJoinMAC(joinReqType, joinEUI, devNonce, key)
+	if err != nil {
+		return false, err
+	}
+
 	return p.MIC == mic, nil
 }
 
@@ -517,9 +538,7 @@ func (p PHYPayload) isUplink() bool {
 	}
 }
 
-// calculateMACPayloadMIC generates and returns the MIC over the MHDR + the
-// binary representation of the MACPayload field.
-func (p PHYPayload) calculateMACPayloadMIC(key AES128Key) (MIC, error) {
+func (p PHYPayload) calculateUplinkJoinMAC(key AES128Key) (MIC, error) {
 	var mic MIC
 
 	if p.MACPayload == nil {
@@ -553,6 +572,67 @@ func (p PHYPayload) calculateMACPayloadMIC(key AES128Key) (MIC, error) {
 	}
 
 	copy(mic[:], hb[0:4])
+	return mic, nil
+}
+
+func (p PHYPayload) calculateDownlinkJoinMAC(joinReqType JoinType, joinEUI EUI64, devNonce DevNonce, key AES128Key) (MIC, error) {
+	var mic MIC
+
+	if p.MACPayload == nil {
+		return mic, errors.New("lorawan: MACPayload most not be empty")
+	}
+
+	joinAccPL, ok := p.MACPayload.(*JoinAcceptPayload)
+	if !ok {
+		return mic, errors.New("lorawan: MACPayload field must be of type *JoinAcceptPayload")
+	}
+
+	var micBytes []byte
+	var b []byte
+	var err error
+
+	if joinAccPL.DLSettings.OptNeg {
+		micBytes = append(micBytes, uint8(joinReqType))
+
+		b, err = joinEUI.MarshalBinary()
+		if err != nil {
+			return mic, err
+		}
+		micBytes = append(micBytes, b...)
+
+		b, err = devNonce.MarshalBinary()
+		if err != nil {
+			return mic, err
+		}
+		micBytes = append(micBytes, b...)
+	}
+
+	b, err = p.MHDR.MarshalBinary()
+	if err != nil {
+		return mic, err
+	}
+	micBytes = append(micBytes, b...)
+
+	// JoinNonce | NetID | DevAddr | DLSettings | RxDelay | CFList
+	b, err = p.MACPayload.MarshalBinary()
+	if err != nil {
+		return mic, err
+	}
+	micBytes = append(micBytes, b...)
+
+	hash, err := cmac.New(key[:])
+	if err != nil {
+		return mic, err
+	}
+	if _, err = hash.Write(micBytes); err != nil {
+		return mic, err
+	}
+	hb := hash.Sum([]byte{})
+	if len(hb) < len(mic) {
+		return mic, fmt.Errorf("lorawan: the hash returned less than %d bytes", len(mic))
+	}
+
+	copy(mic[:], hb[0:len(mic)])
 	return mic, nil
 }
 

@@ -8,6 +8,17 @@ import (
 	"fmt"
 )
 
+// JoinType defines the join-request type.
+type JoinType uint8
+
+// Join-request types.
+const (
+	JoinRequestType    JoinType = 0xff
+	RejoinRequestType0 JoinType = 0x00
+	RejoinRequestType1 JoinType = 0x01
+	RejoinRequestType2 JoinType = 0x02
+)
+
 // EUI64 data type
 type EUI64 [8]byte
 
@@ -77,6 +88,32 @@ func (e EUI64) Value() (driver.Value, error) {
 // DevNonce represents a 2 byte dev-nonce.
 type DevNonce [2]byte
 
+// MarshalBinary implements encoding.BinaryMarshaler.
+func (n DevNonce) MarshalBinary() ([]byte, error) {
+	out := make([]byte, len(n))
+
+	for i, v := range n {
+		// little endian
+		out[len(n)-1-i] = v
+	}
+
+	return out, nil
+}
+
+// UnmarshalBinary implements encoding.BinaryUnmarshaler.
+func (n *DevNonce) UnmarshalBinary(data []byte) error {
+	if len(n) != len(data) {
+		return fmt.Errorf("lorawan: %d bytes are expected", len(n))
+	}
+
+	for i, v := range data {
+		// little endian
+		n[len(n)-1-i] = v
+	}
+
+	return nil
+}
+
 // String implements fmt.Stringer.
 func (n DevNonce) String() string {
 	return hex.EncodeToString(n[:])
@@ -119,21 +156,47 @@ func (n DevNonce) Value() (driver.Value, error) {
 	return n[:], nil
 }
 
-// AppNonce represents a 3 byte app-nonce.
-type AppNonce [3]byte
+// JoinNonce represents a 3 byte app-nonce.
+type JoinNonce [3]byte
+
+// MarshalBinary implements encoding.BinaryMarshaler.
+func (n JoinNonce) MarshalBinary() ([]byte, error) {
+	out := make([]byte, len(n))
+
+	for i, v := range n {
+		// little endian
+		out[len(n)-1-i] = v
+	}
+
+	return out, nil
+}
+
+// UnmarshalBinary implements encoding.BinaryUnmarshaler.
+func (n *JoinNonce) UnmarshalBinary(data []byte) error {
+	if len(data) != len(n) {
+		return fmt.Errorf("lorawan: %d bytes are expected", len(n))
+	}
+
+	for i, v := range data {
+		// little endian
+		n[len(n)-1-i] = v
+	}
+
+	return nil
+}
 
 // String implements fmt.Stringer.
-func (n AppNonce) String() string {
+func (n JoinNonce) String() string {
 	return hex.EncodeToString(n[:])
 }
 
 // MarshalText implements encoding.TextMarshaler.
-func (n AppNonce) MarshalText() ([]byte, error) {
+func (n JoinNonce) MarshalText() ([]byte, error) {
 	return []byte(n.String()), nil
 }
 
 // UnmarshalText implements encoding.TestUnmarshaler.
-func (n *AppNonce) UnmarshalText(text []byte) error {
+func (n *JoinNonce) UnmarshalText(text []byte) error {
 	b, err := hex.DecodeString(string(text))
 	if err != nil {
 		return err
@@ -147,7 +210,7 @@ func (n *AppNonce) UnmarshalText(text []byte) error {
 }
 
 // Scan implements sql.Scanner.
-func (n *AppNonce) Scan(src interface{}) error {
+func (n *JoinNonce) Scan(src interface{}) error {
 	b, ok := src.([]byte)
 	if !ok {
 		return errors.New("lorawan: []byte type expected")
@@ -160,7 +223,7 @@ func (n *AppNonce) Scan(src interface{}) error {
 }
 
 // Value implements driver.Valuer.
-func (n AppNonce) Value() (driver.Value, error) {
+func (n JoinNonce) Value() (driver.Value, error) {
 	return n[:], nil
 }
 
@@ -210,8 +273,13 @@ func (p JoinRequestPayload) MarshalBinary() ([]byte, error) {
 		return nil, err
 	}
 	out = append(out, b...)
-	// little endian
-	out = append(out, p.DevNonce[1], p.DevNonce[0])
+
+	b, err = p.DevNonce.MarshalBinary()
+	if err != nil {
+		return nil, err
+	}
+	out = append(out, b...)
+
 	return out, nil
 }
 
@@ -226,9 +294,10 @@ func (p *JoinRequestPayload) UnmarshalBinary(uplink bool, data []byte) error {
 	if err := p.DevEUI.UnmarshalBinary(data[8:16]); err != nil {
 		return err
 	}
-	// little endian
-	p.DevNonce[1] = data[16]
-	p.DevNonce[0] = data[17]
+	if err := p.DevNonce.UnmarshalBinary(data[16:18]); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -275,8 +344,8 @@ func (l *CFList) UnmarshalBinary(data []byte) error {
 
 // JoinAcceptPayload represents the join-accept message payload.
 type JoinAcceptPayload struct {
-	AppNonce   AppNonce   `json:"appNonce"`
-	NetID      NetID      `json:"netID"`
+	JoinNonce  JoinNonce  `json:"joinNonce"`
+	HomeNetID  NetID      `json:"homeNetID"`
 	DevAddr    DevAddr    `json:"devAddr"`
 	DLSettings DLSettings `json:"dlSettings"`
 	RXDelay    uint8      `json:"rxDelay"` // 0=1s, 1=1s, 2=2s, ... 15=15s
@@ -291,12 +360,13 @@ func (p JoinAcceptPayload) MarshalBinary() ([]byte, error) {
 
 	out := make([]byte, 0, 12)
 
-	// little endian
-	for i := len(p.AppNonce) - 1; i >= 0; i-- {
-		out = append(out, p.AppNonce[i])
+	b, err := p.JoinNonce.MarshalBinary()
+	if err != nil {
+		return nil, err
 	}
+	out = append(out, b...)
 
-	b, err := p.NetID.MarshalBinary()
+	b, err = p.HomeNetID.MarshalBinary()
 	if err != nil {
 		return nil, err
 	}
@@ -333,12 +403,11 @@ func (p *JoinAcceptPayload) UnmarshalBinary(uplink bool, data []byte) error {
 		return errors.New("lorawan: 12 or 28 bytes of data are expected (28 bytes if CFList is present)")
 	}
 
-	// little endian
-	for i, v := range data[0:3] {
-		p.AppNonce[2-i] = v
+	if err := p.JoinNonce.UnmarshalBinary(data[0:3]); err != nil {
+		return err
 	}
 
-	if err := p.NetID.UnmarshalBinary(data[3:6]); err != nil {
+	if err := p.HomeNetID.UnmarshalBinary(data[3:6]); err != nil {
 		return err
 	}
 

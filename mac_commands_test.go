@@ -397,40 +397,42 @@ func TestDLSettings(t *testing.T) {
 			})
 		})
 
-		Convey("Given RX2DataRate=15 and RX1DROffset=7", func() {
+		Convey("Given RX2DataRate=15, RX1DROffset=7 and OptNeg=true", func() {
 			s.RX2DataRate = 15
 			s.RX1DROffset = 7
+			s.OptNeg = true
 			Convey("Then MarshalBinary returns []byte{127}", func() {
 				b, err := s.MarshalBinary()
 				So(err, ShouldBeNil)
-				So(b, ShouldResemble, []byte{127})
+				So(b, ShouldResemble, []byte{255})
 			})
 
-			Convey("Then MarshalText returns 7f", func() {
+			Convey("Then MarshalText returns ff", func() {
 				b, err := s.MarshalText()
 				So(err, ShouldBeNil)
-				So(string(b), ShouldEqual, "7f")
+				So(string(b), ShouldEqual, "ff")
 			})
 		})
 
-		Convey("Given the hex string 7f", func() {
-			h := "7f"
+		Convey("Given the hex string ff", func() {
+			h := "ff"
 
-			Convey("Then UnmarshalText returns a DLSettings with RX2DataRate=15 and RX1DROffset=7", func() {
+			Convey("Then UnmarshalText returns a DLSettings with RX2DataRate=15, RX1DROffset=7 and OptNeg=true", func() {
 				So(s.UnmarshalText([]byte(h)), ShouldBeNil)
 				So(s, ShouldResemble, DLSettings{
 					RX2DataRate: 15,
 					RX1DROffset: 7,
+					OptNeg:      true,
 				})
 			})
 		})
 
-		Convey("Given a slice []byte{127}", func() {
-			b := []byte{127}
-			Convey("Then UnmarshalBinary returns a DLSettings with RX2DataRate=15 and RX1DROffset=7", func() {
+		Convey("Given a slice []byte{255}", func() {
+			b := []byte{255}
+			Convey("Then UnmarshalBinary returns a DLSettings with RX2DataRate=15, RX1DROffset=7 and OptNeg=true", func() {
 				err := s.UnmarshalBinary(b)
 				So(err, ShouldBeNil)
-				So(s, ShouldResemble, DLSettings{RX2DataRate: 15, RX1DROffset: 7})
+				So(s, ShouldResemble, DLSettings{RX2DataRate: 15, RX1DROffset: 7, OptNeg: true})
 			})
 		})
 	})
