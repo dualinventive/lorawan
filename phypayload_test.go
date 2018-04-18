@@ -275,13 +275,42 @@ func TestPHYPayloadMACPayloadLoRaWAN11(t *testing.T) {
 							&DataPayload{Bytes: []byte("hello")},
 						},
 					},
-					MIC: MIC{17, 213, 54, 106},
+					MIC: MIC{118, 18, 54, 106},
 				},
 				SNwkSIntKey: AES128Key{2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2},
 				FNwkSIntKey: AES128Key{2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3},
 				NwkSEncKey:  AES128Key{2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 4},
 				AppSKey:     AES128Key{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
-				Bytes:       []byte{64, 4, 3, 2, 1, 128, 1, 0, 1, 166, 148, 100, 38, 21, 17, 213, 54, 106},
+				Bytes:       []byte{64, 4, 3, 2, 1, 128, 1, 0, 1, 166, 148, 100, 38, 21, 118, 18, 54, 106},
+			},
+			{
+				Name: "FRMPayload data with ACK (in this case the confirmed fCnt is used in the mic)",
+				PHYPayload: PHYPayload{
+					MHDR: MHDR{
+						MType: UnconfirmedDataUp,
+						Major: LoRaWANR1,
+					},
+					MACPayload: &MACPayload{
+						FHDR: FHDR{
+							DevAddr: DevAddr{1, 2, 3, 4},
+							FCtrl: FCtrl{
+								ADR: true,
+								ACK: true,
+							},
+							FCnt: 1,
+						},
+						FPort: &fPort1,
+						FRMPayload: []Payload{
+							&DataPayload{Bytes: []byte("hello")},
+						},
+					},
+					MIC: MIC{248, 66, 196, 185},
+				},
+				SNwkSIntKey: AES128Key{2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2},
+				FNwkSIntKey: AES128Key{2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3},
+				NwkSEncKey:  AES128Key{2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 4},
+				AppSKey:     AES128Key{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
+				Bytes:       []byte{64, 4, 3, 2, 1, 160, 1, 0, 1, 166, 148, 100, 38, 21, 248, 66, 196, 185},
 			},
 			{
 				Name: "Mac-commands in FOpts (encrypted, using NFCntDown)",
@@ -358,13 +387,13 @@ func TestPHYPayloadMACPayloadLoRaWAN11(t *testing.T) {
 							&mac2,
 						},
 					},
-					MIC: MIC{34, 54, 27, 215},
+					MIC: MIC{250, 147, 27, 215},
 				},
 				SNwkSIntKey: AES128Key{2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2},
 				FNwkSIntKey: AES128Key{2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3},
 				NwkSEncKey:  AES128Key{2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 4},
 				AppSKey:     AES128Key{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
-				Bytes:       []byte{64, 4, 3, 2, 1, 0, 0, 0, 0, 105, 54, 158, 34, 54, 27, 215},
+				Bytes:       []byte{64, 4, 3, 2, 1, 0, 0, 0, 0, 105, 54, 158, 250, 147, 27, 215},
 			},
 		}
 

@@ -648,6 +648,11 @@ func (p *PHYPayload) calculateUplinkDataMIC(macVersion MACVersion, confFCnt uint
 		return mic, errors.New("lorawan: MACPayload field must be of type *MACPayload")
 	}
 
+	// set to 0 when the uplink does not contain an ACK
+	if !macPL.FHDR.FCtrl.ACK {
+		confFCnt = 0
+	}
+
 	confFCnt = confFCnt % (1 << 16)
 
 	var micBytes []byte
