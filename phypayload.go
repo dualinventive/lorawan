@@ -198,7 +198,7 @@ func (p PHYPayload) ValidateDownlinkDataMIC(macVersion MACVersion, confFCnt uint
 
 // SetUplinkJoinMIC calculates and sets the MIC field for uplink join requests.
 func (p *PHYPayload) SetUplinkJoinMIC(key AES128Key) error {
-	mic, err := p.calculateUplinkJoinMAC(key)
+	mic, err := p.calculateUplinkJoinMIC(key)
 	if err != nil {
 		return err
 	}
@@ -208,16 +208,16 @@ func (p *PHYPayload) SetUplinkJoinMIC(key AES128Key) error {
 
 // ValidateUplinkJoinMIC validates the MIC of an uplink join request.
 func (p PHYPayload) ValidateUplinkJoinMIC(key AES128Key) (bool, error) {
-	mic, err := p.calculateUplinkJoinMAC(key)
+	mic, err := p.calculateUplinkJoinMIC(key)
 	if err != nil {
 		return false, err
 	}
 	return p.MIC == mic, nil
 }
 
-// SetDownlinkJoinMAC calculates and sets the MIC field for downlink join requests.
-func (p *PHYPayload) SetDownlinkJoinMAC(joinReqType JoinType, joinEUI EUI64, devNonce DevNonce, key AES128Key) error {
-	mic, err := p.calculateDownlinkJoinMAC(joinReqType, joinEUI, devNonce, key)
+// SetDownlinkJoinMIC calculates and sets the MIC field for downlink join requests.
+func (p *PHYPayload) SetDownlinkJoinMIC(joinReqType JoinType, joinEUI EUI64, devNonce DevNonce, key AES128Key) error {
+	mic, err := p.calculateDownlinkJoinMIC(joinReqType, joinEUI, devNonce, key)
 	if err != nil {
 		return err
 	}
@@ -225,9 +225,9 @@ func (p *PHYPayload) SetDownlinkJoinMAC(joinReqType JoinType, joinEUI EUI64, dev
 	return nil
 }
 
-// ValidateDownlinkJoinMAC validates the MIC of a downlink join request.
-func (p PHYPayload) ValidateDownlinkJoinMAC(joinReqType JoinType, joinEUI EUI64, devNonce DevNonce, key AES128Key) (bool, error) {
-	mic, err := p.calculateDownlinkJoinMAC(joinReqType, joinEUI, devNonce, key)
+// ValidateDownlinkJoinMIC validates the MIC of a downlink join request.
+func (p PHYPayload) ValidateDownlinkJoinMIC(joinReqType JoinType, joinEUI EUI64, devNonce DevNonce, key AES128Key) (bool, error) {
+	mic, err := p.calculateDownlinkJoinMIC(joinReqType, joinEUI, devNonce, key)
 	if err != nil {
 		return false, err
 	}
@@ -538,7 +538,7 @@ func (p PHYPayload) isUplink() bool {
 	}
 }
 
-func (p PHYPayload) calculateUplinkJoinMAC(key AES128Key) (MIC, error) {
+func (p PHYPayload) calculateUplinkJoinMIC(key AES128Key) (MIC, error) {
 	var mic MIC
 
 	if p.MACPayload == nil {
@@ -575,7 +575,7 @@ func (p PHYPayload) calculateUplinkJoinMAC(key AES128Key) (MIC, error) {
 	return mic, nil
 }
 
-func (p PHYPayload) calculateDownlinkJoinMAC(joinReqType JoinType, joinEUI EUI64, devNonce DevNonce, key AES128Key) (MIC, error) {
+func (p PHYPayload) calculateDownlinkJoinMIC(joinReqType JoinType, joinEUI EUI64, devNonce DevNonce, key AES128Key) (MIC, error) {
 	var mic MIC
 
 	if p.MACPayload == nil {

@@ -560,7 +560,7 @@ func TestPHYPayloadJoinAccept(t *testing.T) {
 						})
 
 						Convey("Then the MIC is valid", func() {
-							ok, err := p.ValidateDownlinkJoinMAC(JoinRequestType, EUI64{}, DevNonce{}, appKey)
+							ok, err := p.ValidateDownlinkJoinMIC(JoinRequestType, EUI64{}, DevNonce{}, appKey)
 							So(err, ShouldBeNil)
 							So(ok, ShouldBeTrue)
 						})
@@ -588,7 +588,7 @@ func TestPHYPayloadJoinAccept(t *testing.T) {
 				copy(appKey[:], appKeyBytes)
 
 				Convey("Then SetMIC does not fail", func() {
-					So(p.SetDownlinkJoinMAC(JoinRequestType, EUI64{}, DevNonce{}, appKey), ShouldBeNil)
+					So(p.SetDownlinkJoinMIC(JoinRequestType, EUI64{}, DevNonce{}, appKey), ShouldBeNil)
 
 					Convey("Then the MIC is [4]byte{67, 72, 91, 188}", func() {
 						So(p.MIC, ShouldEqual, MIC{67, 72, 91, 188})
@@ -1021,7 +1021,7 @@ func ExamplePHYPayload_joinAcceptSend() {
 	}
 
 	// set the MIC before encryption
-	if err := phy.SetDownlinkJoinMAC(JoinRequestType, joinEUI, devNonce, appKey); err != nil {
+	if err := phy.SetDownlinkJoinMIC(JoinRequestType, joinEUI, devNonce, appKey); err != nil {
 		panic(err)
 	}
 	if err := phy.EncryptJoinAcceptPayload(appKey); err != nil {
@@ -1067,7 +1067,7 @@ func ExamplePHYPayload_lorawan11_joinAcceptSend() {
 	}
 
 	// set the MIC before encryption
-	if err := phy.SetDownlinkJoinMAC(JoinRequestType, joinEUI, devNonce, appKey); err != nil {
+	if err := phy.SetDownlinkJoinMIC(JoinRequestType, joinEUI, devNonce, appKey); err != nil {
 		panic(err)
 	}
 	if err := phy.EncryptJoinAcceptPayload(appKey); err != nil {
