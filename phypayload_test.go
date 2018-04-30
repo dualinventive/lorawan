@@ -700,8 +700,16 @@ func ExamplePHYPayload_lorawan10_encode() {
 					ADRACKReq: false,
 					ACK:       false,
 				},
-				FCnt:  0,
-				FOpts: []Payload{}, // you can leave this out when there is no MAC command to send
+				FCnt: 0,
+				FOpts: []Payload{
+					&MACCommand{
+						CID: DevStatusAns,
+						Payload: &DevStatusAnsPayload{
+							Battery: 115,
+							Margin:  7,
+						},
+					},
+				},
 			},
 			FPort:      &fPort,
 			FRMPayload: []Payload{&DataPayload{Bytes: []byte{1, 2, 3, 4}}},
@@ -736,9 +744,9 @@ func ExamplePHYPayload_lorawan10_encode() {
 	fmt.Println(string(phyJSON))
 
 	// Output:
-	// gAQDAgEAAAAK4mTU97VqDnU=
-	// [128 4 3 2 1 0 0 0 10 226 100 212 247 181 106 14 117]
-	// {"mhdr":{"mType":"ConfirmedDataUp","major":"LoRaWANR1"},"macPayload":{"fhdr":{"devAddr":"01020304","fCtrl":{"adr":false,"adrAckReq":false,"ack":false,"fPending":false,"classB":false},"fCnt":0,"fOpts":[]},"fPort":10,"frmPayload":[{"bytes":"4mTU9w=="}]},"mic":"b56a0e75"}
+	// gAQDAgEDAAAGcwcK4mTU9+EX0sA=
+	// [128 4 3 2 1 3 0 0 6 115 7 10 226 100 212 247 225 23 210 192]
+	// {"mhdr":{"mType":"ConfirmedDataUp","major":"LoRaWANR1"},"macPayload":{"fhdr":{"devAddr":"01020304","fCtrl":{"adr":false,"adrAckReq":false,"ack":false,"fPending":false,"classB":false},"fCnt":0,"fOpts":[{"cid":"DevStatusReq","payload":{"battery":115,"margin":7}}]},"fPort":10,"frmPayload":[{"bytes":"4mTU9w=="}]},"mic":"e117d2c0"}
 }
 
 func ExamplePHYPayload_lorawan10_decode() {
@@ -747,7 +755,7 @@ func ExamplePHYPayload_lorawan10_decode() {
 
 	var phy PHYPayload
 	// use use UnmarshalBinary when decoding a byte-slice
-	if err := phy.UnmarshalText([]byte("gAQDAgEAAAAK4mTU97VqDnU=")); err != nil {
+	if err := phy.UnmarshalText([]byte("gAQDAgEDAAAGcwcK4mTU9+EX0sA=")); err != nil {
 		panic(err)
 	}
 
@@ -757,6 +765,10 @@ func ExamplePHYPayload_lorawan10_decode() {
 	}
 	if !ok {
 		panic("invalid mic")
+	}
+
+	if err := phy.DecodeFOptsToMACCommands(); err != nil {
+		panic(err)
 	}
 
 	phyJSON, err := phy.MarshalJSON()
@@ -781,7 +793,7 @@ func ExamplePHYPayload_lorawan10_decode() {
 	fmt.Println(pl.Bytes)
 
 	// Output:
-	// {"mhdr":{"mType":"ConfirmedDataUp","major":"LoRaWANR1"},"macPayload":{"fhdr":{"devAddr":"01020304","fCtrl":{"adr":false,"adrAckReq":false,"ack":false,"fPending":false,"classB":false},"fCnt":0,"fOpts":null},"fPort":10,"frmPayload":[{"bytes":"4mTU9w=="}]},"mic":"b56a0e75"}
+	// {"mhdr":{"mType":"ConfirmedDataUp","major":"LoRaWANR1"},"macPayload":{"fhdr":{"devAddr":"01020304","fCtrl":{"adr":false,"adrAckReq":false,"ack":false,"fPending":false,"classB":false},"fCnt":0,"fOpts":[{"cid":"DevStatusReq","payload":{"battery":115,"margin":7}}]},"fPort":10,"frmPayload":[{"bytes":"4mTU9w=="}]},"mic":"e117d2c0"}
 	// [1 2 3 4]
 }
 
