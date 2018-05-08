@@ -11,61 +11,102 @@ import (
 )
 
 func TestDevAddr(t *testing.T) {
-	Convey("Given an empty DevAddr", t, func() {
-		var a DevAddr
-		Convey("Then MarshalBinary returns ", func() {
-			b, err := a.MarshalBinary()
-			So(err, ShouldBeNil)
-			So(b, ShouldResemble, []byte{0, 0, 0, 0})
-		})
+	Convey("Given a set of tests", t, func() {
+		tests := []struct {
+			Name      string
+			DevAddr   DevAddr
+			NetIDType int
+			NwkID     []byte
+			Bytes     []byte
+			String    string
+		}{
+			{
+				Name:      "NetID type 0",
+				DevAddr:   DevAddr{91, 255, 255, 255},
+				NetIDType: 0,
+				NwkID:     []byte{45},
+				Bytes:     []byte{255, 255, 255, 91},
+				String:    "5bffffff",
+			},
+			{
+				Name:      "NetID type 1",
+				DevAddr:   DevAddr{173, 255, 255, 255},
+				NetIDType: 1,
+				NwkID:     []byte{45},
+				Bytes:     []byte{255, 255, 255, 173},
+				String:    "adffffff",
+			},
+			{
+				Name:      "NetID type 2",
+				DevAddr:   DevAddr{214, 223, 255, 255},
+				NetIDType: 2,
+				NwkID:     []byte{1, 109},
+				Bytes:     []byte{255, 255, 223, 214},
+				String:    "d6dfffff",
+			},
+			{
+				Name:      "NetID type 3",
+				DevAddr:   DevAddr{235, 111, 255, 255},
+				NetIDType: 3,
+				NwkID:     []byte{2, 219},
+				Bytes:     []byte{255, 255, 111, 235},
+				String:    "eb6fffff",
+			},
+			{
+				Name:      "NetID type 4",
+				DevAddr:   DevAddr{245, 182, 255, 255},
+				NetIDType: 4,
+				NwkID:     []byte{5, 182},
+				Bytes:     []byte{255, 255, 182, 245},
+				String:    "f5b6ffff",
+			},
+			{
+				Name:      "NetID type 5",
+				DevAddr:   DevAddr{250, 219, 127, 255},
+				NetIDType: 5,
+				NwkID:     []byte{22, 219},
+				Bytes:     []byte{255, 127, 219, 250},
+				String:    "fadb7fff",
+			},
+			{
+				Name:      "NetID type 6",
+				DevAddr:   DevAddr{253, 109, 183, 255},
+				NetIDType: 6,
+				NwkID:     []byte{91, 109},
+				Bytes:     []byte{255, 183, 109, 253},
+				String:    "fd6db7ff",
+			},
+			{
+				Name:      "NetID type 7",
+				DevAddr:   DevAddr{254, 182, 219, 127},
+				NetIDType: 7,
+				NwkID:     []byte{1, 109, 182},
+				Bytes:     []byte{127, 219, 182, 254},
+				String:    "feb6db7f",
+			},
+		}
 
-		Convey("Given the DevAddr{255, 1, 1, 1}", func() {
-			a = DevAddr{255, 1, 1, 1}
-			Convey("Then NwkID returns byte(127)", func() {
-				So(a.NwkID(), ShouldEqual, byte(127))
-			})
-		})
+		for i, test := range tests {
+			Convey(fmt.Sprintf("Testing: %s [%d]", test.Name, i), func() {
+				So(test.DevAddr.NetIDType(), ShouldEqual, test.NetIDType)
+				So(test.DevAddr.NwkID(), ShouldResemble, test.NwkID)
 
-		Convey("Given the DevAddr{1, 2, 3, 4}", func() {
-			a = DevAddr{1, 2, 3, 4}
-			Convey("Then MarshalBinary returns []byte{4, 3, 2, 1}", func() {
-				b, err := a.MarshalBinary()
+				b, err := test.DevAddr.MarshalBinary()
 				So(err, ShouldBeNil)
-				So(b, ShouldResemble, []byte{4, 3, 2, 1})
-			})
+				So(b, ShouldResemble, test.Bytes)
 
-			Convey("Then MarshalText returns 01020304", func() {
-				b, err := a.MarshalText()
+				var devAddr DevAddr
+				So(devAddr.UnmarshalBinary(test.Bytes), ShouldBeNil)
+				So(devAddr, ShouldResemble, test.DevAddr)
+
+				b, err = test.DevAddr.MarshalText()
 				So(err, ShouldBeNil)
-				So(string(b), ShouldEqual, "01020304")
-			})
-		})
+				So(string(b), ShouldEqual, test.String)
 
-		Convey("Given the slice []byte{4, 3, 2, 1}", func() {
-			b := []byte{4, 3, 2, 1}
-			Convey("Then UnmarshalBinary returns DevAddr{1, 2, 3, 4}", func() {
-				err := a.UnmarshalBinary(b)
-				So(err, ShouldBeNil)
-				So(a, ShouldResemble, DevAddr{1, 2, 3, 4})
+				So(devAddr.UnmarshalText([]byte(test.String)), ShouldBeNil)
+				So(devAddr, ShouldEqual, test.DevAddr)
 			})
-		})
-
-		Convey("Given the string 01020304", func() {
-			str := "01020304"
-			Convey("Then UnmarshalText returns DevAddr{1, 2, 3, 4}", func() {
-				err := a.UnmarshalText([]byte(str))
-				So(err, ShouldBeNil)
-				So(a, ShouldResemble, DevAddr{1, 2, 3, 4})
-			})
-		})
-
-		Convey("Given []byte{1, 2, 3, 4}", func() {
-			b := []byte{1, 2, 3, 4}
-			Convey("Then Scan scans the value correctly", func() {
-				So(a.Scan(b), ShouldBeNil)
-				So(a[:], ShouldResemble, b)
-			})
-		})
+		}
 	})
 }
 
