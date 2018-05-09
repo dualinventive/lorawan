@@ -110,6 +110,75 @@ func TestDevAddr(t *testing.T) {
 	})
 }
 
+func TestDevAddrSetAddrPrefix(t *testing.T) {
+	Convey("Given a set of tests", t, func() {
+		tests := []struct {
+			Name            string
+			BeforeDevAddr   DevAddr
+			NetID           []NetID
+			ExpectedDevAddr []DevAddr
+		}{
+			{
+				Name:            "Set type 0 prefix",
+				BeforeDevAddr:   DevAddr{255, 255, 255, 255},
+				NetID:           []NetID{{0, 0, 0}, {0, 0, 63}},
+				ExpectedDevAddr: []DevAddr{{1, 255, 255, 255}, {127, 255, 255, 255}},
+			},
+			{
+				Name:            "Set type 1 prefix",
+				BeforeDevAddr:   DevAddr{255, 255, 255, 255},
+				NetID:           []NetID{{32, 0, 0}, {32, 0, 63}},
+				ExpectedDevAddr: []DevAddr{{128, 255, 255, 255}, {191, 255, 255, 255}},
+			},
+			{
+				Name:            "Set type 2 prefix",
+				BeforeDevAddr:   DevAddr{255, 255, 255, 255},
+				NetID:           []NetID{{64, 0, 0}, {64, 1, 255}},
+				ExpectedDevAddr: []DevAddr{{192, 15, 255, 255}, {223, 255, 255, 255}},
+			},
+			{
+				Name:            "Set type 3 prefix",
+				BeforeDevAddr:   DevAddr{255, 255, 255, 255},
+				NetID:           []NetID{{96, 0, 0}, {111, 255, 255}},
+				ExpectedDevAddr: []DevAddr{{224, 3, 255, 255}, {239, 255, 255, 255}},
+			},
+			{
+				Name:            "Set type 4 prefix",
+				BeforeDevAddr:   DevAddr{255, 255, 255, 255},
+				NetID:           []NetID{{128, 0, 0}, {159, 255, 255}},
+				ExpectedDevAddr: []DevAddr{{240, 0, 255, 255}, {247, 255, 255, 255}},
+			},
+			{
+				Name:            "Set type 5 prefix",
+				BeforeDevAddr:   DevAddr{255, 255, 255, 255},
+				NetID:           []NetID{{160, 0, 0}, {191, 255, 255}},
+				ExpectedDevAddr: []DevAddr{{248, 0, 31, 255}, {251, 255, 255, 255}},
+			},
+			{
+				Name:            "Set type 6 prefix",
+				BeforeDevAddr:   DevAddr{255, 255, 255, 255},
+				NetID:           []NetID{{192, 0, 0}, {223, 255, 255}},
+				ExpectedDevAddr: []DevAddr{{252, 0, 3, 255}, {253, 255, 255, 255}},
+			},
+			{
+				Name:            "Set type 7 prefix",
+				BeforeDevAddr:   DevAddr{255, 255, 255, 255},
+				NetID:           []NetID{{224, 0, 0}, {255, 255, 255}},
+				ExpectedDevAddr: []DevAddr{{254, 0, 0, 127}, {254, 255, 255, 255}},
+			},
+		}
+
+		for i, test := range tests {
+			Convey(fmt.Sprintf("Testing: %s [%d]", test.Name, i), func() {
+				for i := range test.NetID {
+					test.BeforeDevAddr.SetAddrPrefix(test.NetID[i])
+					So(test.BeforeDevAddr, ShouldEqual, test.ExpectedDevAddr[i])
+				}
+			})
+		}
+	})
+}
+
 func TestFCtrl(t *testing.T) {
 	Convey("Given a set of tests", t, func() {
 		testTable := []struct {

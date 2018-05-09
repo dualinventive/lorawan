@@ -44,6 +44,54 @@ func (a DevAddr) NwkID() []byte {
 	}
 }
 
+// SetAddrPrefix sets the NetID based AddrPrefix.
+func (a *DevAddr) SetAddrPrefix(netID NetID) {
+	switch netID.Type() {
+	case 0:
+		a.setAddrPrefix(1, 6, netID)
+	case 1:
+		a.setAddrPrefix(2, 6, netID)
+	case 2:
+		a.setAddrPrefix(3, 9, netID)
+	case 3:
+		a.setAddrPrefix(4, 10, netID)
+	case 4:
+		a.setAddrPrefix(5, 11, netID)
+	case 5:
+		a.setAddrPrefix(6, 13, netID)
+	case 6:
+		a.setAddrPrefix(7, 15, netID)
+	case 7:
+		a.setAddrPrefix(8, 17, netID)
+	}
+}
+
+func (a *DevAddr) setAddrPrefix(prefixLength, nwkIDBits int, netID NetID) {
+	// convert DevAddr to uint32
+	devAddr := binary.BigEndian.Uint32(a[:])
+
+	// clear the bits for the prefix and NwkID
+	var mask uint32
+	mask-- // sets all uint32 bits to 1
+	devAddr &^= mask << uint32(32-prefixLength-nwkIDBits)
+
+	// set the type prefix
+	prefix := uint32(254) << uint32(32-prefixLength)
+	devAddr |= prefix
+
+	// set the nwkID
+	nwkIDBytes := make([]byte, 4)
+	id := netID.ID()
+	copy(nwkIDBytes[len(nwkIDBytes)-len(id):], id)
+
+	nwkID := binary.BigEndian.Uint32(nwkIDBytes)
+	nwkID = nwkID << uint32(32-nwkIDBits) // truncate the MSB of the NetID ID field
+	nwkID = nwkID >> uint32(prefixLength) // shift back for the prefix MSB
+	devAddr |= nwkID
+
+	binary.BigEndian.PutUint32(a[:], devAddr)
+}
+
 func (a DevAddr) getNwkID(prefixLength, nwkIDBits int) []byte {
 	// convert DevAddr to uint32
 	temp := binary.BigEndian.Uint32(a[:])
