@@ -66,6 +66,18 @@ func (a *DevAddr) SetAddrPrefix(netID NetID) {
 	}
 }
 
+// IsNetID returns a bool indicating if the NwkID matches the given NetID.
+func (a DevAddr) IsNetID(netID NetID) bool {
+	tempDevAddr := a
+	tempDevAddr.SetAddrPrefix(netID)
+
+	if a == tempDevAddr {
+		return true
+	}
+
+	return false
+}
+
 func (a *DevAddr) setAddrPrefix(prefixLength, nwkIDBits int, netID NetID) {
 	// convert DevAddr to uint32
 	devAddr := binary.BigEndian.Uint32(a[:])

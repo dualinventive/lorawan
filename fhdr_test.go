@@ -171,8 +171,10 @@ func TestDevAddrSetAddrPrefix(t *testing.T) {
 		for i, test := range tests {
 			Convey(fmt.Sprintf("Testing: %s [%d]", test.Name, i), func() {
 				for i := range test.NetID {
+					So(test.BeforeDevAddr.IsNetID(test.NetID[i]), ShouldBeFalse)
 					test.BeforeDevAddr.SetAddrPrefix(test.NetID[i])
 					So(test.BeforeDevAddr, ShouldEqual, test.ExpectedDevAddr[i])
+					So(test.BeforeDevAddr.IsNetID(test.NetID[i]), ShouldBeTrue)
 				}
 			})
 		}
