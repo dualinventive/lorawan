@@ -749,8 +749,9 @@ func (p *PHYPayload) calculateDownlinkDataMIC(macVersion MACVersion, confFCnt ui
 		return mic, errors.New("lorawan: MACPayload field must be of type *MACPayload")
 	}
 
-	// The confirmed FCnt is only used in case of LoRaWAN 1.1
-	if macVersion != LoRaWAN1_1 {
+	// The confirmed FCnt is only used in case of LoRaWAN 1.1 when the ACK
+	// flag is set.
+	if macVersion == LoRaWAN1_0 || !macPL.FHDR.FCtrl.ACK {
 		confFCnt = 0
 	}
 	confFCnt = confFCnt % (1 << 16)
