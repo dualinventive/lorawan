@@ -327,6 +327,7 @@ func (p *PHYPayload) EncryptFOpts(nwkSEncKey AES128Key) error {
 		macB = append(macB, b...)
 	}
 
+	// aFCntDown is used on downlink when FPort > 1
 	var aFCntDown bool
 	if !p.isUplink() && macPL.FPort != nil && *macPL.FPort > 0 {
 		aFCntDown = true
@@ -854,10 +855,8 @@ func EncryptFRMPayload(key AES128Key, uplink bool, devAddr DevAddr, fCnt uint32,
 // For downlink if FPort > 0:
 //   Set the aFCntDown to true and use the AFCntDown
 func EncryptFOpts(nwkSEncKey AES128Key, aFCntDown, uplink bool, devAddr DevAddr, fCnt uint32, data []byte) ([]byte, error) {
-	pLen := len(data)
-	if pLen%16 != 0 {
-		// make data a multiple of 16
-		data = append(data, make([]byte, 16-(pLen%16))...)
+	if len(data) > 15 {
+		return nil, errors.New("lorawan: max size of FOpts is 15 bytes")
 	}
 
 	block, err := aes.NewCipher(nwkSEncKey[:])
@@ -868,13 +867,12 @@ func EncryptFOpts(nwkSEncKey AES128Key, aFCntDown, uplink bool, devAddr DevAddr,
 		return nil, errors.New("lorawan: block size of 16 was expected")
 	}
 
-	s := make([]byte, 16)
 	a := make([]byte, 16)
 	a[0] = 0x01
 	if aFCntDown {
-		a[1] = 0x02
+		a[4] = 0x02
 	} else {
-		a[1] = 0x01
+		a[4] = 0x01
 	}
 
 	if !uplink {
@@ -886,16 +884,17 @@ func EncryptFOpts(nwkSEncKey AES128Key, aFCntDown, uplink bool, devAddr DevAddr,
 		return nil, err
 	}
 	copy(a[6:10], b)
+
+	a[15] = 0x01
+
 	binary.LittleEndian.PutUint32(a[10:14], fCnt)
 
-	for i := 0; i < len(data)/16; i++ {
-		a[15] = byte(i + 1)
-		block.Encrypt(s, a)
+	s := make([]byte, 16)
+	block.Encrypt(s, a)
 
-		for j := 0; j < len(s); j++ {
-			data[i*16+j] = data[i*16+j] ^ s[j]
-		}
+	for i := range data {
+		data[i] ^= s[i]
 	}
 
-	return data[0:pLen], nil
+	return data, nil
 }

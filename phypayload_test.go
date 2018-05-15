@@ -333,12 +333,12 @@ func TestPHYPayloadMACPayloadLoRaWAN11(t *testing.T) {
 							},
 						},
 					},
-					MIC: MIC{4, 167, 117, 9},
+					MIC: MIC{226, 79, 31, 159},
 				},
 				SNwkSIntKey:  AES128Key{2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2},
 				FNwkSIntKey:  AES128Key{2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3},
 				NwkSEncKey:   AES128Key{2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 4},
-				Bytes:        []byte{96, 4, 3, 2, 1, 3, 0, 0, 217, 145, 221, 4, 167, 117, 9},
+				Bytes:        []byte{96, 4, 3, 2, 1, 3, 0, 0, 223, 180, 241, 226, 79, 31, 159},
 				EncryptFOpts: true,
 			},
 			{
@@ -860,9 +860,9 @@ func ExamplePHYPayload_lorawan11_encrypted_fopts_encode() {
 	fmt.Println(string(phyJSON))
 
 	// Output:
-	// YAQDAgEDAAAjB3kB8LRo3RNbLLU=
-	// [96 4 3 2 1 3 0 0 35 7 121 1 240 180 104 221 19 91 44 181]
-	// {"mhdr":{"mType":"UnconfirmedDataDown","major":"LoRaWANR1"},"macPayload":{"fhdr":{"devAddr":"01020304","fCtrl":{"adr":false,"adrAckReq":false,"ack":false,"fPending":false,"classB":false},"fCnt":0,"fOpts":[{"bytes":"Iwd5"}]},"fPort":1,"frmPayload":[{"bytes":"8LRo3Q=="}]},"mic":"135b2cb5"}
+	// YAQDAgEDAAAirAoB8LRo3ape0To=
+	// [96 4 3 2 1 3 0 0 34 172 10 1 240 180 104 221 170 94 209 58]
+	// {"mhdr":{"mType":"UnconfirmedDataDown","major":"LoRaWANR1"},"macPayload":{"fhdr":{"devAddr":"01020304","fCtrl":{"adr":false,"adrAckReq":false,"ack":false,"fPending":false,"classB":false},"fCnt":0,"fOpts":[{"bytes":"IqwK"}]},"fPort":1,"frmPayload":[{"bytes":"8LRo3Q=="}]},"mic":"aa5ed13a"}
 }
 
 func ExamplePHYPayload_lorawan11_encrypted_fopts_decode() {
@@ -871,7 +871,7 @@ func ExamplePHYPayload_lorawan11_encrypted_fopts_decode() {
 	appSKey := [16]byte{16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1}
 
 	var phy PHYPayload
-	if err := phy.UnmarshalText([]byte("YAQDAgEDAAAjB3kB8LRo3RNbLLU=")); err != nil {
+	if err := phy.UnmarshalText([]byte("YAQDAgEDAAAirAoB8LRo3ape0To=")); err != nil {
 		panic(err)
 	}
 
@@ -899,7 +899,7 @@ func ExamplePHYPayload_lorawan11_encrypted_fopts_decode() {
 	fmt.Println(string(phyJSON))
 
 	// Output:
-	// {"mhdr":{"mType":"UnconfirmedDataDown","major":"LoRaWANR1"},"macPayload":{"fhdr":{"devAddr":"01020304","fCtrl":{"adr":false,"adrAckReq":false,"ack":false,"fPending":false,"classB":false},"fCnt":0,"fOpts":[{"cid":"LinkCheckReq","payload":{"margin":7,"gwCnt":1}}]},"fPort":1,"frmPayload":[{"bytes":"AQIDBA=="}]},"mic":"135b2cb5"}
+	// {"mhdr":{"mType":"UnconfirmedDataDown","major":"LoRaWANR1"},"macPayload":{"fhdr":{"devAddr":"01020304","fCtrl":{"adr":false,"adrAckReq":false,"ack":false,"fPending":false,"classB":false},"fCnt":0,"fOpts":[{"cid":"LinkCheckReq","payload":{"margin":7,"gwCnt":1}}]},"fPort":1,"frmPayload":[{"bytes":"AQIDBA=="}]},"mic":"aa5ed13a"}
 }
 
 func ExamplePHYPayload_proprietary_encode() {

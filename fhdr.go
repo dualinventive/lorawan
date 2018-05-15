@@ -107,15 +107,12 @@ func (a *DevAddr) setAddrPrefix(prefixLength, nwkIDBits int, netID NetID) {
 func (a DevAddr) getNwkID(prefixLength, nwkIDBits int) []byte {
 	// convert DevAddr to uint32
 	temp := binary.BigEndian.Uint32(a[:])
-	fmt.Println("devaddr", temp)
 
 	// clear prefix
 	temp = temp << uint32(prefixLength)
-	fmt.Println("no prefix", temp)
 
 	// shift to starting of NwkID
 	temp = temp >> (32 - uint32(nwkIDBits))
-	fmt.Println("beginning nwkid", temp)
 
 	// back to bytes
 	out := make([]byte, 4)
