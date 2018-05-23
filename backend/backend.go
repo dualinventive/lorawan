@@ -41,6 +41,8 @@ type MessageType string
 const (
 	JoinReq     MessageType = "JoinReq"
 	JoinAns     MessageType = "JoinAns"
+	RejoinReq   MessageType = "RejoinReq"
+	RejoinAns   MessageType = "RejoinAns"
 	AppSKeyReq  MessageType = "AppSKeyReq"
 	AppSKeyAns  MessageType = "AppSKeyAns"
 	PRStartReq  MessageType = "PRStartReq"
