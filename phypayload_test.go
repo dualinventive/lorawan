@@ -492,7 +492,7 @@ func TestPHYPayloadJoinRequest(t *testing.T) {
 				Convey("Then the JoinRequestPayload contains the expected data", func() {
 					So(jrPl.JoinEUI, ShouldResemble, EUI64{1, 2, 3, 4, 1, 2, 3, 4})
 					So(jrPl.DevEUI, ShouldResemble, EUI64{2, 3, 4, 5, 2, 3, 4, 5})
-					So(jrPl.DevNonce, ShouldResemble, DevNonce{16, 45})
+					So(jrPl.DevNonce, ShouldEqual, 4141)
 				})
 			})
 
@@ -533,8 +533,8 @@ func TestPHYPayloadJoinAccept(t *testing.T) {
 							jaPL, ok := p.MACPayload.(*JoinAcceptPayload)
 							So(ok, ShouldBeTrue)
 
-							Convey("Then the JoinNonce is [3]byte{87, 11, 199}", func() {
-								So(jaPL.JoinNonce, ShouldEqual, JoinNonce{87, 11, 199})
+							Convey("Then the JoinNonce is 5704647", func() {
+								So(jaPL.JoinNonce, ShouldEqual, JoinNonce(5704647))
 							})
 
 							Convey("Then the NetID is [3]byte{34, 17, 1}", func() {
@@ -560,7 +560,7 @@ func TestPHYPayloadJoinAccept(t *testing.T) {
 						})
 
 						Convey("Then the MIC is valid", func() {
-							ok, err := p.ValidateDownlinkJoinMIC(JoinRequestType, EUI64{}, DevNonce{}, appKey)
+							ok, err := p.ValidateDownlinkJoinMIC(JoinRequestType, EUI64{}, 0, appKey)
 							So(err, ShouldBeNil)
 							So(ok, ShouldBeTrue)
 						})
@@ -569,13 +569,13 @@ func TestPHYPayloadJoinAccept(t *testing.T) {
 			})
 		})
 
-		Convey("Given a JoinAccept with JoinNonce=[3]byte{87, 11, 199}, NetID=[3]byte{34, 17, 1}, DevAddr=[4]byte{2, 3, 25, 128}", func() {
+		Convey("Given a JoinAccept with JoinNonce=5704647, NetID=[3]byte{34, 17, 1}, DevAddr=[4]byte{2, 3, 25, 128}", func() {
 			p.MHDR = MHDR{
 				MType: JoinAccept,
 				Major: LoRaWANR1,
 			}
 			p.MACPayload = &JoinAcceptPayload{
-				JoinNonce: [3]byte{87, 11, 199},
+				JoinNonce: 5704647,
 				HomeNetID: [3]byte{34, 17, 1},
 				DevAddr:   [4]byte{2, 3, 25, 128},
 			}
@@ -588,7 +588,7 @@ func TestPHYPayloadJoinAccept(t *testing.T) {
 				copy(appKey[:], appKeyBytes)
 
 				Convey("Then SetMIC does not fail", func() {
-					So(p.SetDownlinkJoinMIC(JoinRequestType, EUI64{}, DevNonce{}, appKey), ShouldBeNil)
+					So(p.SetDownlinkJoinMIC(JoinRequestType, EUI64{}, 0, appKey), ShouldBeNil)
 
 					Convey("Then the MIC is [4]byte{67, 72, 91, 188}", func() {
 						So(p.MIC, ShouldEqual, MIC{67, 72, 91, 188})
@@ -975,7 +975,7 @@ func ExamplePHYPayload_joinRequest() {
 		MACPayload: &JoinRequestPayload{
 			JoinEUI:  [8]byte{1, 1, 1, 1, 1, 1, 1, 1},
 			DevEUI:   [8]byte{2, 2, 2, 2, 2, 2, 2, 2},
-			DevNonce: [2]byte{3, 3},
+			DevNonce: 771,
 		},
 	}
 
@@ -1004,7 +1004,7 @@ func ExamplePHYPayload_joinRequest() {
 func ExamplePHYPayload_joinAcceptSend() {
 	appKey := [16]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16}
 	joinEUI := EUI64{8, 7, 6, 5, 4, 3, 2, 1}
-	devNonce := DevNonce{1, 2}
+	devNonce := DevNonce(258)
 
 	phy := PHYPayload{
 		MHDR: MHDR{
@@ -1012,7 +1012,7 @@ func ExamplePHYPayload_joinAcceptSend() {
 			Major: LoRaWANR1,
 		},
 		MACPayload: &JoinAcceptPayload{
-			JoinNonce:  [3]byte{1, 1, 1},
+			JoinNonce:  65793,
 			HomeNetID:  [3]byte{2, 2, 2},
 			DevAddr:    DevAddr([4]byte{1, 2, 3, 4}),
 			DLSettings: DLSettings{RX2DataRate: 0, RX1DROffset: 0},
@@ -1049,7 +1049,7 @@ func ExamplePHYPayload_joinAcceptSend() {
 func ExamplePHYPayload_lorawan11_joinAcceptSend() {
 	appKey := [16]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16}
 	joinEUI := EUI64{8, 7, 6, 5, 4, 3, 2, 1}
-	devNonce := DevNonce{1, 2}
+	devNonce := DevNonce(258)
 
 	// note: the DLSettings OptNeg is set to true!
 	phy := PHYPayload{
@@ -1058,7 +1058,7 @@ func ExamplePHYPayload_lorawan11_joinAcceptSend() {
 			Major: LoRaWANR1,
 		},
 		MACPayload: &JoinAcceptPayload{
-			JoinNonce:  [3]byte{1, 1, 1},
+			JoinNonce:  65793,
 			HomeNetID:  [3]byte{2, 2, 2},
 			DevAddr:    DevAddr([4]byte{1, 2, 3, 4}),
 			DLSettings: DLSettings{RX2DataRate: 0, RX1DROffset: 0, OptNeg: true},
@@ -1112,5 +1112,5 @@ func ExamplePHYPayload_readJoinRequest() {
 	// JoinRequest
 	// 0102030401020304
 	// 0203040502030405
-	// 102d
+	// 4141
 }

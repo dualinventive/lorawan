@@ -85,146 +85,51 @@ func (e EUI64) Value() (driver.Value, error) {
 	return e[:], nil
 }
 
-// DevNonce represents a 2 byte dev-nonce.
-type DevNonce [2]byte
+// DevNonce represents the dev-nonce.
+type DevNonce uint16
 
 // MarshalBinary implements encoding.BinaryMarshaler.
 func (n DevNonce) MarshalBinary() ([]byte, error) {
-	out := make([]byte, len(n))
-
-	for i, v := range n {
-		// little endian
-		out[len(n)-1-i] = v
-	}
-
+	out := make([]byte, 2)
+	binary.LittleEndian.PutUint16(out, uint16(n))
 	return out, nil
 }
 
 // UnmarshalBinary implements encoding.BinaryUnmarshaler.
 func (n *DevNonce) UnmarshalBinary(data []byte) error {
-	if len(n) != len(data) {
-		return fmt.Errorf("lorawan: %d bytes are expected", len(n))
+	if len(data) != 2 {
+		return errors.New("lorawan: 2 bytes are expected")
 	}
-
-	for i, v := range data {
-		// little endian
-		n[len(n)-1-i] = v
-	}
-
+	*n = DevNonce(binary.LittleEndian.Uint16(data))
 	return nil
 }
 
-// String implements fmt.Stringer.
-func (n DevNonce) String() string {
-	return hex.EncodeToString(n[:])
-}
-
-// MarshalText implements encoding.TextMarshaler.
-func (n DevNonce) MarshalText() ([]byte, error) {
-	return []byte(n.String()), nil
-}
-
-// UnmarshalText implements encoding.TestUnmarshaler.
-func (n *DevNonce) UnmarshalText(text []byte) error {
-	b, err := hex.DecodeString(string(text))
-	if err != nil {
-		return err
-	}
-
-	if len(n) != len(b) {
-		return fmt.Errorf("lorawan: exactly %d bytes are expected", len(n))
-	}
-	copy(n[:], b)
-	return nil
-}
-
-// Scan implements sql.Scanner.
-func (n *DevNonce) Scan(src interface{}) error {
-	b, ok := src.([]byte)
-	if !ok {
-		return errors.New("lorawan: []byte type expected")
-	}
-	if len(b) != len(n) {
-		return fmt.Errorf("lorawan: []byte must have length %d", len(n))
-	}
-	copy(n[:], b)
-	return nil
-}
-
-// Value implements driver.Valuer.
-func (n DevNonce) Value() (driver.Value, error) {
-	return n[:], nil
-}
-
-// JoinNonce represents a 3 byte app-nonce.
-type JoinNonce [3]byte
+// JoinNonce represents the join-nonce.
+// Note that the max value is 2^24 - 1 = 16777215.
+type JoinNonce uint32
 
 // MarshalBinary implements encoding.BinaryMarshaler.
 func (n JoinNonce) MarshalBinary() ([]byte, error) {
-	out := make([]byte, len(n))
-
-	for i, v := range n {
-		// little endian
-		out[len(n)-1-i] = v
+	if n >= (1 << 24) {
+		return nil, errors.New("lorawan: max value is 2^24 - 1 (16777215)")
 	}
 
-	return out, nil
+	b := make([]byte, 4)
+	binary.LittleEndian.PutUint32(b, uint32(n))
+	return b[:3], nil
 }
 
 // UnmarshalBinary implements encoding.BinaryUnmarshaler.
 func (n *JoinNonce) UnmarshalBinary(data []byte) error {
-	if len(data) != len(n) {
-		return fmt.Errorf("lorawan: %d bytes are expected", len(n))
+	if len(data) != 3 {
+		return errors.New("lorawan: 3 bytes are expected")
 	}
 
-	for i, v := range data {
-		// little endian
-		n[len(n)-1-i] = v
-	}
+	b := make([]byte, 4)
+	copy(b[:3], data)
+	*n = JoinNonce(binary.LittleEndian.Uint32(b))
 
 	return nil
-}
-
-// String implements fmt.Stringer.
-func (n JoinNonce) String() string {
-	return hex.EncodeToString(n[:])
-}
-
-// MarshalText implements encoding.TextMarshaler.
-func (n JoinNonce) MarshalText() ([]byte, error) {
-	return []byte(n.String()), nil
-}
-
-// UnmarshalText implements encoding.TestUnmarshaler.
-func (n *JoinNonce) UnmarshalText(text []byte) error {
-	b, err := hex.DecodeString(string(text))
-	if err != nil {
-		return err
-	}
-
-	if len(n) != len(b) {
-		return fmt.Errorf("lorawan: exactly %d bytes are expected", len(n))
-	}
-	copy(n[:], b)
-	return nil
-}
-
-// Scan implements sql.Scanner.
-func (n *JoinNonce) Scan(src interface{}) error {
-	b, ok := src.([]byte)
-	if !ok {
-		return errors.New("lorawan: []byte type expected")
-	}
-	if len(b) != len(n) {
-		return fmt.Errorf("lorawan: []byte must have length %d", len(n))
-	}
-	copy(n[:], b)
-	return nil
-}
-
-// Value implements driver.Valuer.
-func (n JoinNonce) Value() (driver.Value, error) {
-	return n[:], nil
 }
 
 // Payload is the interface that every payload needs to implement.

@@ -53,29 +53,18 @@ func TestDevNonce(t *testing.T) {
 		var nonce DevNonce
 
 		Convey("When setting the dev-nonce", func() {
-			nonce = DevNonce{1, 2}
+			nonce = DevNonce(272)
 
-			Convey("Then MarshalText returns the expected value", func() {
-				b, err := nonce.MarshalText()
+			Convey("Then MarshalBinary returns the expected value", func() {
+				b, err := nonce.MarshalBinary()
 				So(err, ShouldBeNil)
-				So(string(b), ShouldEqual, "0102")
-			})
-
-			Convey("Then Value returns the exepcted value", func() {
-				v, err := nonce.Value()
-				So(err, ShouldBeNil)
-				So(v, ShouldResemble, driver.Value(nonce[:]))
+				So(b, ShouldResemble, []byte{16, 1})
 			})
 		})
 
-		Convey("Then UnmarshalText sets the nonde correctly", func() {
-			So(nonce.UnmarshalText([]byte("0102")), ShouldBeNil)
-			So(nonce[:], ShouldResemble, []byte{1, 2})
-		})
-
-		Convey("Then Scan sets the nonce correctly", func() {
-			So(nonce.Scan([]byte{1, 2}), ShouldBeNil)
-			So(nonce[:], ShouldResemble, []byte{1, 2})
+		Convey("Then UnmarshalBinary returns the expected nonce", func() {
+			So(nonce.UnmarshalBinary([]byte{16, 1}), ShouldBeNil)
+			So(nonce, ShouldEqual, DevNonce(272))
 		})
 	})
 }
@@ -85,29 +74,18 @@ func TestJoinNonce(t *testing.T) {
 		var nonce JoinNonce
 
 		Convey("When setting the app-nonce", func() {
-			nonce = JoinNonce{1, 2, 3}
+			nonce = JoinNonce(66051)
 
-			Convey("Then MarshalText returns the expected value", func() {
-				b, err := nonce.MarshalText()
+			Convey("Then MarshalBinary returns the expected value", func() {
+				b, err := nonce.MarshalBinary()
 				So(err, ShouldBeNil)
-				So(string(b), ShouldEqual, "010203")
-			})
-
-			Convey("Then Value returns the exepcted value", func() {
-				v, err := nonce.Value()
-				So(err, ShouldBeNil)
-				So(v, ShouldResemble, driver.Value(nonce[:]))
+				So(b, ShouldResemble, []byte{3, 2, 1})
 			})
 		})
 
-		Convey("Then UnmarshalText sets the nonde correctly", func() {
-			So(nonce.UnmarshalText([]byte("010203")), ShouldBeNil)
-			So(nonce[:], ShouldResemble, []byte{1, 2, 3})
-		})
-
-		Convey("Then Scan sets the nonce correctly", func() {
-			So(nonce.Scan([]byte{1, 2, 3}), ShouldBeNil)
-			So(nonce[:], ShouldResemble, []byte{1, 2, 3})
+		Convey("Then UnmarshalBinary returns the expected value", func() {
+			So(nonce.UnmarshalBinary([]byte{3, 2, 1}), ShouldBeNil)
+			So(nonce, ShouldEqual, 66051)
 		})
 	})
 }
@@ -154,7 +132,7 @@ func TestJoinRequestPayload(t *testing.T) {
 		Convey("Given JoinEUI=[8]byte{1, 1, 1, 1, 1, 1, 1, 1}, DevEUI=[8]byte{2, 2, 2, 2, 2, 2, 2, 2} and DevNonce=[2]byte{3, 3}", func() {
 			p.JoinEUI = [8]byte{1, 1, 1, 1, 1, 1, 1, 1}
 			p.DevEUI = [8]byte{2, 2, 2, 2, 2, 2, 2, 2}
-			p.DevNonce = [2]byte{3, 3}
+			p.DevNonce = 771
 			Convey("Then MarshalBinary returns []byte{1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3}", func() {
 				b, err := p.MarshalBinary()
 				So(err, ShouldBeNil)
@@ -178,7 +156,7 @@ func TestJoinRequestPayload(t *testing.T) {
 				So(p, ShouldResemble, JoinRequestPayload{
 					JoinEUI:  [8]byte{1, 1, 1, 1, 1, 1, 1, 1},
 					DevEUI:   [8]byte{2, 2, 2, 2, 2, 2, 2, 2},
-					DevNonce: [2]byte{3, 3},
+					DevNonce: 771,
 				})
 			})
 		})
@@ -219,8 +197,8 @@ func TestJoinAcceptPayload(t *testing.T) {
 			So(b, ShouldResemble, []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0})
 		})
 
-		Convey("Given JoinNonce=[3]byte{1, 1, 1}, NetID=[3]byte{2, 2, 2}, DevAddr=DevAddr([4]byte{1, 2, 3, 4}), DLSettings=(RX2DataRate=7, RX1DROffset=6), RXDelay=9", func() {
-			p.JoinNonce = [3]byte{1, 1, 1}
+		Convey("Given JoinNonce=65793, NetID=[3]byte{2, 2, 2}, DevAddr=DevAddr([4]byte{1, 2, 3, 4}), DLSettings=(RX2DataRate=7, RX1DROffset=6), RXDelay=9", func() {
+			p.JoinNonce = 65793
 			p.HomeNetID = [3]byte{2, 2, 2}
 			p.DevAddr = DevAddr([4]byte{1, 2, 3, 4})
 			p.DLSettings.RX2DataRate = 7
@@ -234,8 +212,8 @@ func TestJoinAcceptPayload(t *testing.T) {
 			})
 		})
 
-		Convey("Given JoinNonce=[3]byte{1, 1, 1}, NetID=[3]byte{2, 2, 2}, DevAddr=DevAddr([4]byte{1, 2, 3, 4}), DLSettings=(RX2DataRate=7, RX1DROffset=6), RXDelay=9, CFList=867.1, 867.3, 867.5, 867.7, 867.9", func() {
-			p.JoinNonce = [3]byte{1, 1, 1}
+		Convey("Given JoinNonce=65793, NetID=[3]byte{2, 2, 2}, DevAddr=DevAddr([4]byte{1, 2, 3, 4}), DLSettings=(RX2DataRate=7, RX1DROffset=6), RXDelay=9, CFList=867.1, 867.3, 867.5, 867.7, 867.9", func() {
+			p.JoinNonce = 65793
 			p.HomeNetID = [3]byte{2, 2, 2}
 			p.DevAddr = DevAddr([4]byte{1, 2, 3, 4})
 			p.DLSettings.RX2DataRate = 7
@@ -271,7 +249,7 @@ func TestJoinAcceptPayload(t *testing.T) {
 				err := p.UnmarshalBinary(false, b)
 				So(err, ShouldBeNil)
 
-				So(p.JoinNonce, ShouldResemble, JoinNonce{1, 1, 1})
+				So(p.JoinNonce, ShouldEqual, JoinNonce(65793))
 				So(p.HomeNetID, ShouldResemble, NetID{2, 2, 2})
 				So(p.DevAddr, ShouldEqual, DevAddr([4]byte{1, 2, 3, 4}))
 				So(p.DLSettings, ShouldResemble, DLSettings{RX2DataRate: 7, RX1DROffset: 6})
@@ -285,7 +263,7 @@ func TestJoinAcceptPayload(t *testing.T) {
 				err := p.UnmarshalBinary(false, b)
 				So(err, ShouldBeNil)
 
-				So(p.JoinNonce, ShouldResemble, JoinNonce{1, 1, 1})
+				So(p.JoinNonce, ShouldResemble, JoinNonce(65793))
 				So(p.HomeNetID, ShouldResemble, NetID{2, 2, 2})
 				So(p.DevAddr, ShouldEqual, DevAddr([4]byte{1, 2, 3, 4}))
 				So(p.DLSettings, ShouldResemble, DLSettings{RX2DataRate: 7, RX1DROffset: 6})
