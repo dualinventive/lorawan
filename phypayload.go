@@ -236,9 +236,12 @@ func (p PHYPayload) ValidateDownlinkJoinMIC(joinReqType JoinType, joinEUI EUI64,
 }
 
 // EncryptJoinAcceptPayload encrypts the join-accept payload with the given
-// AppKey. Note that encrypted must be performed after calling SetMIC
-// (sicne the MIC is part of the encrypted payload).
-func (p *PHYPayload) EncryptJoinAcceptPayload(appKey AES128Key) error {
+// key. Note that encrypted must be performed after calling SetMIC
+// (since the MIC is part of the encrypted payload).
+//
+// Note: for encrypting a join-request response, use NwkKey
+//       for rejoin-request 0, 1, 2 response, use JSEncKey
+func (p *PHYPayload) EncryptJoinAcceptPayload(key AES128Key) error {
 	if _, ok := p.MACPayload.(*JoinAcceptPayload); !ok {
 		return errors.New("lorawan: MACPayload value must be of type *JoinAcceptPayload")
 	}
@@ -256,7 +259,7 @@ func (p *PHYPayload) EncryptJoinAcceptPayload(appKey AES128Key) error {
 		return errors.New("lorawan: plaintext must be a multiple of 16 bytes")
 	}
 
-	block, err := aes.NewCipher(appKey[:])
+	block, err := aes.NewCipher(key[:])
 	if err != nil {
 		return err
 	}
@@ -274,8 +277,11 @@ func (p *PHYPayload) EncryptJoinAcceptPayload(appKey AES128Key) error {
 }
 
 // DecryptJoinAcceptPayload decrypts the join-accept payload with the given
-// AppKey. Note that you need to decrypte before you can validate the MIC.
-func (p *PHYPayload) DecryptJoinAcceptPayload(appKey AES128Key) error {
+// key. Note that you need to decrypte before you can validate the MIC.
+//
+// Note: for encrypting a join-request response, use NwkKey
+//       for rejoin-request 0, 1, 2 response, use JSEncKey
+func (p *PHYPayload) DecryptJoinAcceptPayload(key AES128Key) error {
 	dp, ok := p.MACPayload.(*DataPayload)
 	if !ok {
 		return errors.New("lorawan: MACPayload must be of type *DataPayload")
@@ -288,7 +294,7 @@ func (p *PHYPayload) DecryptJoinAcceptPayload(appKey AES128Key) error {
 		return errors.New("lorawan: plaintext must be a multiple of 16 bytes")
 	}
 
-	block, err := aes.NewCipher(appKey[:])
+	block, err := aes.NewCipher(key[:])
 	if err != nil {
 		return err
 	}
