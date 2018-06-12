@@ -290,7 +290,7 @@ func TestRejoinRequestType02Payload(t *testing.T) {
 		}{
 			{
 				Payload: RejoinRequestType02Payload{
-					RejoinType: 0,
+					RejoinType: RejoinRequestType0,
 					NetID:      NetID{1, 2, 3},
 					DevEUI:     EUI64{9, 10, 11, 12, 13, 14, 15, 16},
 					RJCount0:   219,
@@ -299,7 +299,7 @@ func TestRejoinRequestType02Payload(t *testing.T) {
 			},
 			{
 				Payload: RejoinRequestType02Payload{
-					RejoinType: 1,
+					RejoinType: RejoinRequestType1,
 					NetID:      NetID{1, 2, 3},
 					DevEUI:     EUI64{9, 10, 11, 12, 13, 14, 15, 16},
 					RJCount0:   219,
@@ -308,7 +308,7 @@ func TestRejoinRequestType02Payload(t *testing.T) {
 			},
 			{
 				Payload: RejoinRequestType02Payload{
-					RejoinType: 2,
+					RejoinType: RejoinRequestType2,
 					NetID:      NetID{1, 2, 3},
 					DevEUI:     EUI64{9, 10, 11, 12, 13, 14, 15, 16},
 					RJCount0:   219,
@@ -342,7 +342,7 @@ func TestRejoinRequestType1Payload(t *testing.T) {
 		}{
 			{
 				Payload: RejoinRequestType1Payload{
-					RejoinType: 1,
+					RejoinType: RejoinRequestType1,
 					JoinEUI:    EUI64{1, 2, 3, 4, 5, 6, 7, 8},
 					DevEUI:     EUI64{9, 10, 11, 12, 13, 14, 15, 16},
 					RJCount1:   219,
@@ -351,7 +351,7 @@ func TestRejoinRequestType1Payload(t *testing.T) {
 			},
 			{
 				Payload: RejoinRequestType1Payload{
-					RejoinType: 2,
+					RejoinType: RejoinRequestType2,
 					JoinEUI:    EUI64{1, 2, 3, 4, 5, 6, 7, 8},
 					DevEUI:     EUI64{9, 10, 11, 12, 13, 14, 15, 16},
 					RJCount1:   219,

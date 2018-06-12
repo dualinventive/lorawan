@@ -336,10 +336,10 @@ func (p *JoinAcceptPayload) UnmarshalBinary(uplink bool, data []byte) error {
 
 // RejoinRequestType02Payload represents a rejoin-request of type 0 or 2.
 type RejoinRequestType02Payload struct {
-	RejoinType uint8  `json:"rejoinType"`
-	NetID      NetID  `json:"netID"`
-	DevEUI     EUI64  `json:"devEUI"`
-	RJCount0   uint16 `json:"rjCount0"`
+	RejoinType JoinType `json:"rejoinType"`
+	NetID      NetID    `json:"netID"`
+	DevEUI     EUI64    `json:"devEUI"`
+	RJCount0   uint16   `json:"rjCount0"`
 }
 
 // MarshalBinary marshals the object in binary form.
@@ -350,7 +350,7 @@ func (p RejoinRequestType02Payload) MarshalBinary() ([]byte, error) {
 
 	out := make([]byte, 0, 14)
 
-	out = append(out, p.RejoinType)
+	out = append(out, byte(p.RejoinType))
 
 	b, err := p.NetID.MarshalBinary()
 	if err != nil {
@@ -377,7 +377,7 @@ func (p *RejoinRequestType02Payload) UnmarshalBinary(uplink bool, data []byte) e
 		return errors.New("lorawan: 14 bytes of data are expected")
 	}
 
-	p.RejoinType = data[0]
+	p.RejoinType = JoinType(data[0])
 
 	if err := p.NetID.UnmarshalBinary(data[1:4]); err != nil {
 		return err
@@ -394,10 +394,10 @@ func (p *RejoinRequestType02Payload) UnmarshalBinary(uplink bool, data []byte) e
 
 // RejoinRequestType1Payload represents a rejoin-request of type 1.
 type RejoinRequestType1Payload struct {
-	RejoinType uint8  `json:"rejoinRequest"`
-	JoinEUI    EUI64  `json:"joinEUI"`
-	DevEUI     EUI64  `json:"devEUI"`
-	RJCount1   uint16 `json:"rjCount1"`
+	RejoinType JoinType `json:"rejoinRequest"`
+	JoinEUI    EUI64    `json:"joinEUI"`
+	DevEUI     EUI64    `json:"devEUI"`
+	RJCount1   uint16   `json:"rjCount1"`
 }
 
 // MarshalBinary marshals the object in binary form.
@@ -408,7 +408,7 @@ func (p RejoinRequestType1Payload) MarshalBinary() ([]byte, error) {
 
 	out := make([]byte, 0, 19)
 
-	out = append(out, p.RejoinType)
+	out = append(out, byte(p.RejoinType))
 
 	b, err := p.JoinEUI.MarshalBinary()
 	if err != nil {
@@ -435,7 +435,7 @@ func (p *RejoinRequestType1Payload) UnmarshalBinary(uplink bool, data []byte) er
 		return errors.New("lorawan: 19 bytes of data are expected")
 	}
 
-	p.RejoinType = data[0]
+	p.RejoinType = JoinType(data[0])
 
 	if err := p.JoinEUI.UnmarshalBinary(data[1:9]); err != nil {
 		return err
