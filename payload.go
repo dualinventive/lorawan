@@ -206,28 +206,33 @@ func (p *JoinRequestPayload) UnmarshalBinary(uplink bool, data []byte) error {
 	return nil
 }
 
-// CFList represents a list of channel frequencies. Each frequency is in Hz
-// and must be multiple of 100, (since the frequency will be divided by 100
-// on encoding), the max allowed value is 2^24-1 * 100.
-type CFList [5]uint32
+// CFListType defines the CFList payload type.
+type CFListType uint8
+
+// Possible CFList types.
+const (
+	CFListChannel     CFListType = 0
+	CFListChannelMask CFListType = 1
+)
+
+// CFList represents a list of channel frequencies or channel-masks.
+type CFList struct {
+	Payload    Payload    `json:"payload"`
+	CFListType CFListType `json:"cFListType"`
+}
 
 // MarshalBinary marshals the object in binary form.
 func (l CFList) MarshalBinary() ([]byte, error) {
-	out := make([]byte, 0, 16)
-	for _, f := range l {
-		if f%100 != 0 {
-			return nil, errors.New("lorawan: frequency must be a multiple of 100")
-		}
-		f = f / 100
-		if f > 16777215 { // 2^24 - 1
-			return nil, errors.New("lorawan: max value of frequency is 2^24-1")
-		}
-		b := make([]byte, 4, 4)
-		binary.LittleEndian.PutUint32(b, f)
-		out = append(out, b[:3]...)
+	out := make([]byte, 16)
+
+	b, err := l.Payload.MarshalBinary()
+	if err != nil {
+		return nil, err
 	}
-	// last byte is 0 / RFU
-	return append(out, 0), nil
+	copy(out, b)
+	out[15] = byte(l.CFListType)
+
+	return out, nil
 }
 
 // UnmarshalBinary decodes the object from binary form.
@@ -235,13 +240,122 @@ func (l *CFList) UnmarshalBinary(data []byte) error {
 	if len(data) != 16 {
 		return errors.New("lorawan: 16 bytes of data are expected")
 	}
-	for i := 0; i < 5; i++ {
-		l[i] = binary.LittleEndian.Uint32([]byte{
+
+	l.CFListType = CFListType(data[15])
+
+	switch l.CFListType {
+	case CFListChannelMask:
+		l.Payload = &CFListChannelMaskPayload{}
+	default:
+		l.Payload = &CFListChannelPayload{}
+	}
+
+	if err := l.Payload.UnmarshalBinary(false, data[:15]); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// CFListChannelPayload holds a list of (up to 5) channel frequencies.
+// Each frequency is in Hz and must be a multiple of 100.
+type CFListChannelPayload struct {
+	Channels [5]uint32
+}
+
+// MarshalBinary marshals the object in binary form.
+func (p CFListChannelPayload) MarshalBinary() ([]byte, error) {
+	out := make([]byte, 0)
+
+	for _, f := range p.Channels {
+		if f%100 != 0 {
+			return nil, errors.New("lorawan: frequency must be a multiple of 100")
+		}
+
+		f = f / 100
+		if f > (1<<24)-1 {
+			return nil, errors.New("lorawan: max value of frequency is 2^24-1")
+		}
+
+		b := make([]byte, 4)
+		binary.LittleEndian.PutUint32(b, f)
+		out = append(out, b[:3]...)
+	}
+
+	return out, nil
+}
+
+// UnmarshalBinary decodes the object from binary form.
+func (p *CFListChannelPayload) UnmarshalBinary(uplink bool, data []byte) error {
+	if len(data) > 15 {
+		return errors.New("lorawan: max length is 15 bytes")
+	}
+
+	if len(data)%3 != 0 {
+		return errors.New("lorawan: length must be a multiple of 3")
+	}
+
+	for i := 0; i < len(data)/3; i++ {
+		p.Channels[i] = binary.LittleEndian.Uint32([]byte{
 			data[i*3],
 			data[i*3+1],
 			data[i*3+2],
 			0,
 		}) * 100
+	}
+
+	return nil
+}
+
+// CFListChannelMaskPayload holds a list of channel-masks.
+type CFListChannelMaskPayload struct {
+	ChannelMasks []ChMask
+}
+
+// MarshalBinary marshals the object in binary form.
+func (p CFListChannelMaskPayload) MarshalBinary() ([]byte, error) {
+	if len(p.ChannelMasks) > 6 {
+		return nil, errors.New("lorawan: max number of channel-masks is 6")
+	}
+
+	var out []byte
+	for _, cm := range p.ChannelMasks {
+		b, err := cm.MarshalBinary()
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, b...)
+	}
+	return out, nil
+}
+
+// UnmarshalBinary decodes the object from binary form.
+func (p *CFListChannelMaskPayload) UnmarshalBinary(uplink bool, data []byte) error {
+	if len(data) > 15 {
+		return errors.New("lorawan: max 15 bytes are expected")
+	}
+
+	// make data a multiple of 2
+	if remainder := len(data) % 2; remainder != 0 {
+		data = data[:len(data)-remainder]
+	}
+
+	var chMaskNil ChMask
+	var pending []ChMask
+
+	for i := 0; i < len(data)/2; i++ {
+		var cm ChMask
+		if err := cm.UnmarshalBinary(data[i*2 : (i*2)+2]); err != nil {
+			return err
+		}
+		pending = append(pending, cm)
+
+		if cm != chMaskNil {
+			for i := range pending {
+				p.ChannelMasks = append(p.ChannelMasks, pending[i])
+			}
+			pending = []ChMask{}
+		}
 	}
 
 	return nil
